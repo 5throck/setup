@@ -1,65 +1,27 @@
 #!/usr/bin/env bash
 # Workshop Setup — macOS
-# Usage: bash setup-mac.sh [--wezterm] [--docker]
+# Usage: bash setup-mac.sh [--wezterm] [--docker] [--force]
+#
+# Env overrides for reproducible installs: BUN_VERSION, UV_VERSION, PYTHON_VERSION
+# (default: latest). Example: BUN_VERSION=1.1.34 bash setup-mac.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
 # (curl | bash) for bun and Antigravity CLI. This is the standard official
 # install path for these tools, but it carries supply-chain risk: the
 # downloaded script runs with your user permissions before you can review it.
-# For production/enterprise environments, prefer checking the installer's
-# checksum/signature first, or installing via Homebrew instead.
+# Installers are downloaded to disk first (not piped directly) and their
+# SHA-256 is printed/logged for auditability. For production/enterprise
+# environments, prefer checking the installer's checksum/signature against a
+# known-good value first, or installing via Homebrew instead.
 set -uo pipefail
 
-# ── ANSI colors ───────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
-CYAN='\033[0;36m';  BOLD='\033[1m';      DIM='\033[2m';  NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=setup-lib.sh
+# (sourced without extra args — setup-lib.sh reads this script's own "$@")
+source "$SCRIPT_DIR/setup-lib.sh"
 
-# ── Animation helpers ─────────────────────────────────────────────────────────
-SPIN='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-ERRORS=()
+init_logging "mac"
 
-# Section header with overall progress bar
-section() {
-  local num=$1 total=$2 label="$3"
-  local pct=$(( num * 100 / total ))
-  local width=22
-  local filled=$(( width * pct / 100 ))
-  local bar="" i=0
-  while [ $i -lt $filled ]; do bar="${bar}█"; i=$((i + 1)); done
-  while [ $i -lt $width ];  do bar="${bar}░"; i=$((i + 1)); done
-  printf "\n${BOLD}${CYAN}[%d/%d]${NC} %-32s ${YELLOW}[%s] %3d%%${NC}\n" \
-    "$num" "$total" "$label" "$bar" "$pct"
-}
-
-# Run a command with spinner; show ✅ or ❌ on completion
-run_step() {
-  local label="$1"; shift
-  local tmplog; tmplog=$(mktemp)
-  local i=0
-
-  "$@" >"$tmplog" 2>&1 &
-  local pid=$!
-
-  while kill -0 "$pid" 2>/dev/null; do
-    local ch="${SPIN:$(( i % ${#SPIN} )):1}"
-    printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"
-    i=$(( i + 1 ))
-    sleep 0.08
-  done
-
-  wait "$pid"; local rc=$?
-  if [[ $rc -eq 0 ]]; then
-    printf "\r${GREEN}✅${NC}  %s\n" "$label"
-  else
-    printf "\r${RED}❌${NC}  %s\n" "$label"
-    sed 's/^/     /' "$tmplog" | head -5 || true
-    ERRORS+=("$label")
-  fi
-  rm -f "$tmplog"
-  return $rc
-}
-
-# Silent check: is a command available?
 installed() { command -v "$1" &>/dev/null; }
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -72,6 +34,12 @@ cat << 'EOF'
 EOF
 printf "${NC}\n"
 
+if [[ $FORCE -eq 1 ]]; then
+  printf "${YELLOW}🔧  Force mode: all tools will be reinstalled${NC}\n\n"
+fi
+
+preflight_checks
+
 TOTAL=8
 
 # ── 1. Homebrew ───────────────────────────────────────────────────────────────
@@ -79,8 +47,8 @@ section 1 $TOTAL "Package manager (Homebrew)"
 if installed brew; then
   run_step "brew update & upgrade" brew upgrade --quiet
 else
-  run_step "Install Homebrew" bash -c \
-    '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+  run_step "Install Homebrew" fetch_and_run \
+    https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh bash
   if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
     echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
@@ -90,56 +58,73 @@ fi
 # ── 2. Base tools ─────────────────────────────────────────────────────────────
 section 2 $TOTAL "Base tools"
 for pkg in curl git gh; do
-  if installed "$pkg"; then
-    printf "${GREEN}✅${NC}  $pkg ${DIM}(already installed)${NC}\n"
-  else
+  if should_install "$pkg"; then
     run_step "Install $pkg" brew install "$pkg"
+  else
+    printf "${GREEN}✅${NC}  $pkg ${DIM}(already installed)${NC}\n"
   fi
 done
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
 section 3 $TOTAL "Runtime: bun"
-if installed bun; then
-  printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"
-else
-  run_step "Install bun" bash -c 'curl -fsSL https://bun.sh/install | bash'
+if should_install bun; then
+  BUN_TMP=$(mktemp)
+  if curl -fsSL https://bun.sh/install -o "$BUN_TMP"; then
+    BUN_SUM=$(shasum -a 256 "$BUN_TMP" | cut -d' ' -f1)
+    printf "     ${DIM}installer sha256: %s${NC}\n" "$BUN_SUM"
+    if [[ "$BUN_VERSION" != "latest" ]]; then
+      run_step "Install bun ($BUN_VERSION)" bash "$BUN_TMP" "$BUN_VERSION"
+    else
+      run_step "Install bun (latest)" bash "$BUN_TMP"
+    fi
+  else
+    printf "${RED}❌${NC}  Failed to download bun installer\n"
+    ERRORS+=("Install bun")
+  fi
+  rm -f "$BUN_TMP"
   export PATH="$HOME/.bun/bin:$PATH"
   for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
-    [[ -f "$rc" ]] && grep -q 'bun' "$rc" || true \
-      || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$rc"
+    [[ -f "$rc" ]] && ! grep -q 'bun' "$rc" \
+      && echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$rc"
   done
+else
+  printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"
 fi
 
 # ── 4. Runtime: python3 ───────────────────────────────────────────────────────
 section 4 $TOTAL "Runtime: python3"
-if installed python3; then
-  printf "${GREEN}✅${NC}  python3 ${DIM}$(python3 --version) (already installed)${NC}\n"
+if should_install python3; then
+  PY_FORMULA="python3"
+  [[ "$PYTHON_VERSION" != "latest" ]] && PY_FORMULA="python@${PYTHON_VERSION}"
+  run_step "Install $PY_FORMULA" brew install "$PY_FORMULA"
 else
-  run_step "Install python3" brew install python3
+  printf "${GREEN}✅${NC}  python3 ${DIM}$(python3 --version) (already installed)${NC}\n"
 fi
 
 # ── 5. Runtime: uv ───────────────────────────────────────────────────────────
 section 5 $TOTAL "Runtime: uv"
-if installed uv; then
-  printf "${GREEN}✅${NC}  uv ${DIM}$(uv --version) (already installed)${NC}\n"
-else
+if should_install uv; then
   run_step "Install uv" brew install uv
+  if [[ "$UV_VERSION" != "latest" ]]; then
+    printf "${YELLOW}⚠️ ${NC}  Homebrew installs the latest uv; use 'uv self update --version %s' to pin.\n" "$UV_VERSION"
+  fi
+else
+  printf "${GREEN}✅${NC}  uv ${DIM}$(uv --version) (already installed)${NC}\n"
 fi
 
 # ── 6. CLI tools ─────────────────────────────────────────────────────────────
 section 6 $TOTAL "CLI tools"
-if installed claude; then
-  printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
-else
+if should_install claude; then
   run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code \
     || run_step "Install Claude Code CLI (npm fallback)" npm install -g @anthropic-ai/claude-code
+else
+  printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
 fi
 
-if installed agy; then
-  printf "${GREEN}✅${NC}  agy ${DIM}(Antigravity CLI, already installed)${NC}\n"
+if should_install agy; then
+  run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
-  run_step "Install Antigravity CLI" bash -c \
-    'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+  printf "${GREEN}✅${NC}  agy ${DIM}(Antigravity CLI, already installed)${NC}\n"
 fi
 
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────
@@ -162,13 +147,13 @@ else
   printf "${YELLOW}⚠️ ${NC}  Antigravity Desktop — install manually: ${CYAN}https://antigravity.google${NC}\n"
 fi
 
-if [[ -d "/Applications/Mark.app" ]] || ls /Applications/Mark*.app &>/dev/null 2>&1 || true; then
+if [[ -d "/Applications/Mark.app" ]]; then
   printf "${GREEN}✅${NC}  Mark (Markdown viewer) ${DIM}(already installed)${NC}\n"
 else
   printf "${YELLOW}⚠️ ${NC}  Mark (Markdown viewer) — install manually: ${CYAN}https://playloom.app/mark${NC}\n"
 fi
 
-if [[ " $* " == *" --wezterm "* ]] || [[ "${1:-}" == "--wezterm" ]]; then
+if [[ " $* " == *" --wezterm "* ]]; then
   if [[ -d "/Applications/WezTerm.app" ]]; then
     printf "${GREEN}✅${NC}  WezTerm ${DIM}(already installed)${NC}\n"
   else
@@ -177,11 +162,11 @@ if [[ " $* " == *" --wezterm "* ]] || [[ "${1:-}" == "--wezterm" ]]; then
 fi
 
 if [[ " $* " == *" --docker "* ]]; then
-  if installed docker; then
-    printf "${GREEN}✅${NC}  Docker ${DIM}$(docker --version) (already installed)${NC}\n"
-  else
+  if should_install docker; then
     run_step "Install Docker Desktop" brew install --cask docker
     printf "${YELLOW}⚠️ ${NC}  Launch Docker Desktop once to complete setup.\n"
+  else
+    printf "${GREEN}✅${NC}  Docker ${DIM}$(docker --version) (already installed)${NC}\n"
   fi
 fi
 
@@ -197,7 +182,7 @@ else
   printf "     ${DIM}git config --global user.email 'you@example.com'${NC}\n"
 fi
 
-if gh auth status &>/dev/null || true; then
+if gh auth status &>/dev/null; then
   printf "${GREEN}✅${NC}  gh auth: logged in\n"
 else
   printf "${YELLOW}⚠️ ${NC}  gh auth: not logged in — run ${CYAN}gh auth login${NC} before the workshop\n"

@@ -63,6 +63,8 @@ bash setup-mac.sh --wezterm
 bash setup-mac.sh --docker
 # Both optional tools:
 bash setup-mac.sh --wezterm --docker
+# Force-reinstall all tools even if already present
+bash setup-mac.sh --force
 ```
 
 ### Linux (Ubuntu / Debian)
@@ -75,7 +77,11 @@ bash setup-linux.sh --wezterm
 bash setup-linux.sh --docker
 # Both optional tools:
 bash setup-linux.sh --wezterm --docker
+# Force-reinstall all tools even if already present
+bash setup-linux.sh --force
 ```
+
+> macOS/Linux share preflight checks (internet, disk space, OS info), a run log under `~/workshop-setup-logs/`, and `--force` via `setup-lib.sh`.
 
 ### Windows
 
@@ -95,15 +101,31 @@ Open **PowerShell as Administrator** and run:
 
 > **After running**: close and reopen the terminal so PATH changes take effect.
 
+### Pinning tool versions (all platforms)
+
+By default the scripts install the latest release of `bun`, `uv`, and `python3`. For reproducible workshop environments, pin versions via environment variables before running:
+
+```bash
+# macOS / Linux
+BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
+```
+
+```powershell
+# Windows
+$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; .\setup-windows.ps1
+```
+
 ---
 
 ## Step 3 — Verify Installation
 
 ```bash
 bun setup-common.ts
+# Machine-readable output (for CI / scripting):
+bun setup-common.ts --json
 ```
 
-This prints a verification table of all installed tools. **All rows must show ✅ before the workshop.**
+This prints a verification table of all installed tools, including minimum-version checks for `bun`/`uv` and `claude`/`gh` login status. **All rows must show ✅ before the workshop.**
 
 ---
 
@@ -174,7 +196,8 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 The script warns but continues. Some installs (winget, WSL2) may fail. Recommended: re-run PowerShell as Administrator.
 
 **Installation logs**
-Windows setup logs are automatically saved to `%USERPROFILE%\workshop-setup-logs\`.
+- Windows: `%USERPROFILE%\workshop-setup-logs\`
+- macOS / Linux: `~/workshop-setup-logs/`
 
 ---
 

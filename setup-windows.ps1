@@ -2,18 +2,45 @@
 # Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force]
 # Run PowerShell as Administrator before executing.
 #
+# Env overrides for reproducible installs: $env:BUN_VERSION, $env:UV_VERSION
+# (default: latest). Example: $env:BUN_VERSION="1.1.34"; .\setup-windows.ps1
+#
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
-# (irm | iex / Invoke-Expression) for bun, NodeSource, and Antigravity CLI.
-# This is the standard official install path for these tools, but it carries
-# supply-chain risk: the downloaded script runs with your permissions before
-# you can review it. For production/enterprise environments, prefer checking
-# the installer's checksum/signature first, or installing via winget instead.
+# for bun, uv, and Antigravity CLI. This is the standard official install
+# path for these tools, but it carries supply-chain risk: the downloaded
+# script runs with your permissions before you can review it. Installers are
+# downloaded to disk first (Invoke-WebRequest -OutFile, not piped directly
+# into iex) and their SHA-256 is printed/logged for auditability. For
+# production/enterprise environments, prefer checking the installer's
+# checksum/signature against a known-good value first, or installing via
+# winget instead.
 param(
     [switch]$WSL2,
     [switch]$WezTerm,
     [switch]$Docker,
     [switch]$Force
 )
+
+$BunVersion = if ($env:BUN_VERSION) { $env:BUN_VERSION } else { "latest" }
+$UvVersion  = if ($env:UV_VERSION)  { $env:UV_VERSION }  else { "latest" }
+
+# Download a remote installer to a temp file, print its SHA-256 for
+# auditability, then execute it — avoids a bare `irm | iex`.
+function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
+    $tmp = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+        $hash = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash
+        Write-Host "     installer sha256: $hash" -ForegroundColor DarkGray
+        & $Runner $tmp
+        return $true
+    } catch {
+        Write-Host "  ⚠️  Installer download/run failed: $_" -ForegroundColor Yellow
+        return $false
+    } finally {
+        Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+    }
+}
 
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -325,13 +352,11 @@ if ((-not $Force) -and (Installed bun)) {
 }
 if ((-not (Installed bun)) -or $Force) {
     # Full install: use npm fallback when PS 5.1 cannot download bun.sh/install.ps1
-    $bunInstallOk = $false
-    try {
-        $bunInstallScript = irm bun.sh/install.ps1 -UseBasicParsing -ErrorAction Stop
-        Invoke-Expression $bunInstallScript
-        $bunInstallOk = $true
-    } catch {
-        Write-Host "  ⚠️  bun.sh/install.ps1 download failed: $_" -ForegroundColor Yellow
+    $bunInstallOk = Invoke-RemoteInstaller "https://bun.sh/install.ps1" {
+        param($installerPath)
+        if ($BunVersion -ne "latest") { & $installerPath $BunVersion } else { & $installerPath }
+    }
+    if (-not $bunInstallOk) {
         Write-Host "     Falling back to npm-based install..." -ForegroundColor Yellow
     }
     if (-not $bunInstallOk) {
@@ -385,14 +410,21 @@ Section 7 $TOTAL "Runtime: uv"
 if ((-not $Force) -and (Installed uv)) {
     Write-Host "✅  uv $(uv --version) (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install uv" {
-        winget install --id astral-sh.uv --silent --accept-source-agreements
+    if ($UvVersion -ne "latest") {
+        RunStep "Install uv ($UvVersion)" {
+            winget install --id astral-sh.uv --version $UvVersion --silent --accept-source-agreements
+        }
+    } else {
+        RunStep "Install uv" {
+            winget install --id astral-sh.uv --silent --accept-source-agreements
+        }
     }
     RefreshEnv
     if (-not (Installed uv)) {
-        RunStep "Install uv (fallback)" {
-            irm https://astral.sh/uv/install.ps1 | iex
-        }
+        Invoke-RemoteInstaller "https://astral.sh/uv/install.ps1" {
+            param($installerPath)
+            & $installerPath
+        } | Out-Null
         RefreshEnv
     }
 }
@@ -420,9 +452,10 @@ if ((-not $Force) -and (Installed claude)) {
 if ((-not $Force) -and (Installed agy)) {
     Write-Host "✅  agy (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install Antigravity CLI" {
-        irm https://antigravity.google/cli/install.ps1 | iex
-    }
+    Invoke-RemoteInstaller "https://antigravity.google/cli/install.ps1" {
+        param($installerPath)
+        & $installerPath
+    } | Out-Null
     RefreshEnv
 }
 

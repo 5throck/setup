@@ -1,61 +1,26 @@
 #!/usr/bin/env bash
 # Workshop Setup — Linux (Ubuntu/Debian)
-# Usage: bash setup-linux.sh [--wezterm] [--docker]
+# Usage: bash setup-linux.sh [--wezterm] [--docker] [--force]
+#
+# Env overrides for reproducible installs: BUN_VERSION, UV_VERSION, PYTHON_VERSION
+# (default: latest). Example: BUN_VERSION=1.1.34 bash setup-linux.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
 # (curl | bash) for bun, NodeSource, and Antigravity CLI. This is the standard
 # official install path for these tools, but it carries supply-chain risk:
 # the downloaded script runs with your user permissions before you can review it.
-# For production/enterprise environments, prefer checking the installer's
-# checksum/signature first, or installing from your distro's package manager.
+# Installers are downloaded to disk first (not piped directly) and their
+# SHA-256 is printed/logged for auditability. For production/enterprise
+# environments, prefer checking the installer's checksum/signature against a
+# known-good value first, or installing from your distro's package manager.
 set -uo pipefail
 
-# ── ANSI colors ───────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'
-CYAN='\033[0;36m';  BOLD='\033[1m';      DIM='\033[2m';  NC='\033[0m'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=setup-lib.sh
+# (sourced without extra args — setup-lib.sh reads this script's own "$@")
+source "$SCRIPT_DIR/setup-lib.sh"
 
-# ── Animation helpers ─────────────────────────────────────────────────────────
-SPIN='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
-ERRORS=()
-
-section() {
-  local num=$1 total=$2 label="$3"
-  local pct=$(( num * 100 / total ))
-  local width=22
-  local filled=$(( width * pct / 100 ))
-  local bar="" i=0
-  while [ $i -lt $filled ]; do bar="${bar}█"; i=$((i + 1)); done
-  while [ $i -lt $width ];  do bar="${bar}░"; i=$((i + 1)); done
-  printf "\n${BOLD}${CYAN}[%d/%d]${NC} %-32s ${YELLOW}[%s] %3d%%${NC}\n" \
-    "$num" "$total" "$label" "$bar" "$pct"
-}
-
-run_step() {
-  local label="$1"; shift
-  local tmplog; tmplog=$(mktemp)
-  local i=0
-
-  "$@" >"$tmplog" 2>&1 &
-  local pid=$!
-
-  while kill -0 "$pid" 2>/dev/null; do
-    local ch="${SPIN:$(( i % ${#SPIN} )):1}"
-    printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"
-    i=$(( i + 1 ))
-    sleep 0.08
-  done
-
-  wait "$pid"; local rc=$?
-  if [[ $rc -eq 0 ]]; then
-    printf "\r${GREEN}✅${NC}  %s\n" "$label"
-  else
-    printf "\r${RED}❌${NC}  %s\n" "$label"
-    sed 's/^/     /' "$tmplog" | head -5 || true
-    ERRORS+=("$label")
-  fi
-  rm -f "$tmplog"
-  return $rc
-}
+init_logging "linux"
 
 installed() { command -v "$1" &>/dev/null; }
 
@@ -70,7 +35,6 @@ sudo -v || { printf "${RED}❌  sudo 인증 실패. 스크립트를 종료합니
 # 스크립트 실행 중 sudo 세션이 만료되지 않도록 백그라운드에서 갱신
 ( while true; do sudo -n true; sleep 60; done ) &
 SUDO_KEEPALIVE_PID=$!
-trap 'kill "$SUDO_KEEPALIVE_PID" 2>/dev/null' EXIT
 
 # ── Header ────────────────────────────────────────────────────────────────────
 clear
@@ -81,6 +45,12 @@ cat << 'EOF'
   ╚══════════════════════════════════════════╝
 EOF
 printf "${NC}\n"
+
+if [[ $FORCE -eq 1 ]]; then
+  printf "${YELLOW}🔧  Force mode: all tools will be reinstalled${NC}\n\n"
+fi
+
+preflight_checks
 
 TOTAL=8
 
@@ -98,9 +68,7 @@ else
   printf "${GREEN}✅${NC}  curl, git, unzip ${DIM}(already installed)${NC}\n"
 fi
 
-if installed gh; then
-  printf "${GREEN}✅${NC}  gh ${DIM}(already installed)${NC}\n"
-else
+if should_install gh; then
   run_step "Add GitHub CLI repo" bash -c '
     curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
@@ -108,53 +76,71 @@ else
       | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
     sudo apt-get update -q'
   run_step "Install gh" sudo apt-get install -y -q gh
+else
+  printf "${GREEN}✅${NC}  gh ${DIM}(already installed)${NC}\n"
 fi
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
 section 3 $TOTAL "Runtime: bun"
-if installed bun; then
-  printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"
-else
-  run_step "Install bun" bash -c 'curl -fsSL https://bun.sh/install | bash'
+if should_install bun; then
+  BUN_TMP=$(mktemp)
+  if curl -fsSL https://bun.sh/install -o "$BUN_TMP"; then
+    BUN_SUM=$(command -v sha256sum &>/dev/null && sha256sum "$BUN_TMP" | cut -d' ' -f1 || shasum -a 256 "$BUN_TMP" | cut -d' ' -f1)
+    printf "     ${DIM}installer sha256: %s${NC}\n" "$BUN_SUM"
+    if [[ "$BUN_VERSION" != "latest" ]]; then
+      run_step "Install bun ($BUN_VERSION)" bash "$BUN_TMP" "$BUN_VERSION"
+    else
+      run_step "Install bun (latest)" bash "$BUN_TMP"
+    fi
+  else
+    printf "${RED}❌${NC}  Failed to download bun installer\n"
+    ERRORS+=("Install bun")
+  fi
+  rm -f "$BUN_TMP"
   export PATH="$HOME/.bun/bin:$PATH"
-  grep -q 'bun' "$HOME/.bashrc" || true \
+  grep -q 'bun' "$HOME/.bashrc" 2>/dev/null \
     || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.bashrc"
+else
+  printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"
 fi
 
 # ── 4. Runtime: python3 ───────────────────────────────────────────────────────
 section 4 $TOTAL "Runtime: python3"
-if installed python3; then
-  printf "${GREEN}✅${NC}  python3 ${DIM}$(python3 --version) (already installed)${NC}\n"
+if should_install python3; then
+  PY_PKG="python3"
+  [[ "$PYTHON_VERSION" != "latest" ]] && PY_PKG="python${PYTHON_VERSION}"
+  run_step "Install $PY_PKG" sudo apt-get install -y -q "$PY_PKG" python3-pip python3-venv
 else
-  run_step "Install python3" sudo apt-get install -y -q python3 python3-pip python3-venv
+  printf "${GREEN}✅${NC}  python3 ${DIM}$(python3 --version) (already installed)${NC}\n"
 fi
 
 # ── 5. Runtime: uv ───────────────────────────────────────────────────────────
 section 5 $TOTAL "Runtime: uv"
-if installed uv; then
-  printf "${GREEN}✅${NC}  uv ${DIM}$(uv --version) (already installed)${NC}\n"
-else
-  run_step "Install uv" bash -c 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+if should_install uv; then
+  UV_URL="https://astral.sh/uv/install.sh"
+  [[ "$UV_VERSION" != "latest" ]] && UV_URL="https://astral.sh/uv/${UV_VERSION}/install.sh"
+  run_step "Install uv ($UV_VERSION)" fetch_and_run "$UV_URL" sh
   export PATH="$HOME/.local/bin:$PATH"
+else
+  printf "${GREEN}✅${NC}  uv ${DIM}$(uv --version) (already installed)${NC}\n"
 fi
 
 # ── 6. CLI tools ──────────────────────────────────────────────────────────────
 section 6 $TOTAL "CLI tools"
-if installed claude; then
-  printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
-else
+if should_install claude; then
   if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
     run_step "Install Node.js (fallback)" bash -c \
-      'curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo bash - && sudo apt-get install -y -q nodejs'
+      'curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
     run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
   fi
+else
+  printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
 fi
 
-if installed agy; then
-  printf "${GREEN}✅${NC}  agy ${DIM}(already installed)${NC}\n"
+if should_install agy; then
+  run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
-  run_step "Install Antigravity CLI" bash -c \
-    'curl -fsSL https://antigravity.google/cli/install.sh | bash'
+  printf "${GREEN}✅${NC}  agy ${DIM}(already installed)${NC}\n"
 fi
 
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────
@@ -173,19 +159,17 @@ printf "${YELLOW}⚠️ ${NC}  Antigravity Desktop — install manually: ${CYAN}
 printf "${YELLOW}⚠️ ${NC}  Mark (Markdown viewer) — install manually: ${CYAN}https://playloom.app/mark${NC}\n"
 
 if [[ " $* " == *" --docker "* ]]; then
-  if installed docker; then
-    printf "${GREEN}✅${NC}  Docker ${DIM}$(docker --version) (already installed)${NC}\n"
-  else
-    run_step "Install Docker" bash -c 'curl -fsSL https://get.docker.com | sudo sh'
+  if should_install docker; then
+    run_step "Install Docker" fetch_and_run https://get.docker.com sudo sh
     run_step "Add user to docker group" bash -c "sudo usermod -aG docker ${USER:-$(whoami)}"
     printf "${YELLOW}⚠️ ${NC}  Log out and back in for docker group to take effect.\n"
+  else
+    printf "${GREEN}✅${NC}  Docker ${DIM}$(docker --version) (already installed)${NC}\n"
   fi
 fi
 
-if [[ " $* " == *" --wezterm "* ]] || [[ "${1:-}" == "--wezterm" ]]; then
-  if installed wezterm; then
-    printf "${GREEN}✅${NC}  WezTerm ${DIM}(already installed)${NC}\n"
-  else
+if [[ " $* " == *" --wezterm "* ]]; then
+  if should_install wezterm; then
     run_step "Add WezTerm repo" bash -c '
       curl -fsSL https://apt.fury.io/wez/gpg.key \
         | sudo gpg --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
@@ -193,6 +177,8 @@ if [[ " $* " == *" --wezterm "* ]] || [[ "${1:-}" == "--wezterm" ]]; then
         | sudo tee /etc/apt/sources.list.d/wezterm.list
       sudo apt-get update -q'
     run_step "Install WezTerm" sudo apt-get install -y -q wezterm
+  else
+    printf "${GREEN}✅${NC}  WezTerm ${DIM}(already installed)${NC}\n"
   fi
 fi
 
@@ -208,7 +194,7 @@ else
   printf "     ${DIM}git config --global user.email 'you@example.com'${NC}\n"
 fi
 
-if gh auth status &>/dev/null || true; then
+if gh auth status &>/dev/null; then
   printf "${GREEN}✅${NC}  gh auth: logged in\n"
 else
   printf "${YELLOW}⚠️ ${NC}  gh auth: not logged in — run ${CYAN}gh auth login${NC} before the workshop\n"

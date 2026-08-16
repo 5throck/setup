@@ -1,0 +1,76 @@
+name: Test setup scripts
+
+on:
+  push:
+    paths:
+      - "setup-linux.sh"
+      - "setup-mac.sh"
+      - "setup-windows.ps1"
+      - "setup-common.ts"
+      - "setup-lib.sh"
+      - "check-docs-sync.sh"
+      - "SETUP.md"
+      - ".github/workflows/test-setup.yml"
+  pull_request:
+    paths:
+      - "setup-linux.sh"
+      - "setup-mac.sh"
+      - "setup-windows.ps1"
+      - "setup-common.ts"
+      - "setup-lib.sh"
+      - "check-docs-sync.sh"
+      - "SETUP.md"
+      - ".github/workflows/test-setup.yml"
+
+jobs:
+  docs-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check SETUP.md flags are in sync with scripts
+        run: bash check-docs-sync.sh
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ShellCheck
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q shellcheck
+          shellcheck -S warning setup-linux.sh setup-mac.sh setup-lib.sh
+
+  linux-dry-run:
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install sudo (base image lacks it)
+        run: apt-get update -q && apt-get install -y -q sudo
+      - name: Create non-root user
+        run: |
+          useradd -m -s /bin/bash runner
+          echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+          chown -R runner:runner "$GITHUB_WORKSPACE"
+      - name: Run setup-linux.sh
+        run: su runner -c "bash setup-linux.sh"
+        working-directory: ${{ github.workspace }}
+      - name: Run setup-common.ts verification
+        run: su runner -c "bash -lc 'export PATH=\$HOME/.bun/bin:\$PATH && bun setup-common.ts --json'"
+        working-directory: ${{ github.workspace }}
+
+  windows-syntax-check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse setup-windows.ps1 (syntax only, no execution)
+        shell: pwsh
+        run: |
+          $errors = $null
+          $tokens = $null
+          [System.Management.Automation.Language.Parser]::ParseFile("setup-windows.ps1", [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Host "::error::$($_.Message)" }
+            exit 1
+          }
+          Write-Host "Parsed OK"

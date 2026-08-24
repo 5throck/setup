@@ -187,10 +187,15 @@ The script automatically retries with npm fallback if bun fails. If issues persi
 The Antigravity CLI install script places the binary in `~/.local/bin` or `/usr/local/bin`. Run `source ~/.bashrc` or restart your terminal.
 
 **Windows: `execution of scripts is disabled`**
-The script auto-configures `RemoteSigned`. To set manually:
+The script auto-configures the policy: it sets `CurrentUser` → `RemoteSigned`, falling back to a session-only `Process` bypass if that fails. To set manually:
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
+Or run once without changing any persistent setting:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+If the script reports the policy is **enforced by Group Policy** (`MachinePolicy`/`UserPolicy` scope), local changes cannot override it — ask IT to enable script execution under `Computer Configuration > Administrative Templates > Windows Components > Windows PowerShell > Turn on Script Execution`, and check applied policies with `gpresult /R`. Downloaded `.ps1` files may also need `Unblock-File .\file.ps1`.
 
 **Windows: running without admin privileges**
 The script warns but continues. Some installs (winget, WSL2) may fail. Recommended: re-run PowerShell as Administrator.

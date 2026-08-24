@@ -165,10 +165,15 @@ export PATH="$HOME/.bun/bin:$PATH"
 Antigravity CLI 설치 스크립트는 바이너리를 `~/.local/bin` 또는 `/usr/local/bin`에 저장합니다. `source ~/.bashrc`를 실행하거나 터미널을 재시작하세요.
 
 **Windows: `스크립트 실행이 비활성화되어 있습니다`**
-스크립트가 자동으로 `RemoteSigned`로 설정합니다. 수동으로 변경하려면:
+스크립트가 자동으로 정책을 구성합니다: `CurrentUser` → `RemoteSigned` 설정을 시도하고, 실패하면 세션 전용 `Process` 스코프 우회로 전환합니다. 수동으로 변경하려면:
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
+설정을 영구 변경하지 않고 1회만 실행하려면:
+```powershell
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+스크립트가 **그룹 정책에 의해 강제된다**고 표시하는 경우(`MachinePolicy`/`UserPolicy` 스코프) 로컬 변경으로는 해제할 수 없습니다 — IT 관리자에게 `컴퓨터 구성 > 관리 템플릿 > Windows 구성 요소 > Windows PowerShell > 스크립트 실행 켜기` 허용을 요청하고, 적용된 정책은 `gpresult /R`로 확인하세요. 인터넷에서 내려받은 `.ps1` 파일은 `Unblock-File .\파일.ps1`이 필요할 수 있습니다.
 
 **Windows: 관리자 권한 없이 실행한 경우**
 스크립트가 경고를 표시하지만 계속 진행됩니다. winget 등 일부 설치에서 오류가 발생할 수 있으므로 권장: PowerShell을 관리자 권한으로 재실행하세요.

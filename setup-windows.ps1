@@ -30,6 +30,10 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
     $tmp = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
     try {
         Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+        # Downloaded files carry Mark-of-the-Web (Zone.Identifier ADS); under
+        # RemoteSigned, unsigned remote scripts are blocked with "not digitally
+        # signed" until unblocked.
+        Unblock-File -Path $tmp -ErrorAction SilentlyContinue
         $hash = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash
         Write-Host "     installer sha256: $hash" -ForegroundColor DarkGray
         & $Runner $tmp
@@ -49,16 +53,53 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
     [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
 # ── Execution policy guard ────────────────────────────────────────────────────
-$currentPolicy = Get-ExecutionPolicy -Scope CurrentUser
-if ($currentPolicy -ne 'RemoteSigned' -and $currentPolicy -ne 'Unrestricted') {
-    Write-Host "  ⚠️  Execution policy is '$currentPolicy' — changing to 'RemoteSigned'..." -ForegroundColor Yellow
+# Prevents "running scripts is disabled on this system".
+# Effective policy = first defined scope in precedence order:
+#   MachinePolicy > UserPolicy > Process > CurrentUser > LocalMachine
+# MachinePolicy/UserPolicy are set by Group Policy and override every local
+# setting (including -ExecutionPolicy on the command line), so they cannot be
+# fixed here — fail fast with actionable guidance instead.
+$policyRows      = Get-ExecutionPolicy -List
+$effectivePolicy = Get-ExecutionPolicy
+$allowsScripts   = @('RemoteSigned', 'Bypass', 'Unrestricted') -contains $effectivePolicy
+$gpoScope        = $policyRows | Where-Object {
+    $_.ExecutionPolicy -ne 'Undefined' -and $_.Scope -in @('MachinePolicy', 'UserPolicy')
+} | Select-Object -First 1
+
+if (-not $allowsScripts) {
+    if ($gpoScope) {
+        Write-Host "  ❌  Execution policy '$effectivePolicy' is enforced by Group Policy ($($gpoScope.Scope) scope)." -ForegroundColor Red
+        Write-Host "     Local changes cannot override it. Options:" -ForegroundColor Yellow
+        Write-Host "       1. Ask IT to enable: Computer Configuration > Administrative Templates" -ForegroundColor DarkGray
+        Write-Host "          > Windows Components > Windows PowerShell > Turn on Script Execution" -ForegroundColor DarkGray
+        Write-Host "       2. Inspect applied policies: gpresult /R" -ForegroundColor DarkGray
+        exit 1
+    }
+    Write-Host "  ⚠️  Execution policy is '$effectivePolicy' — changing to 'RemoteSigned'..." -ForegroundColor Yellow
+    # Preferred fix: persistent, per-user (no elevation required).
+    $policyFixed = $false
     try {
-        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
-        Write-Host "  ✅  Execution policy set to 'RemoteSigned'" -ForegroundColor Green
-    } catch {
+        Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force -ErrorAction Stop
+        $policyFixed = (@('RemoteSigned', 'Bypass', 'Unrestricted') -contains (Get-ExecutionPolicy))
+    } catch { }
+    # Fallback: session-only bypass (reverts when this window closes).
+    if (-not $policyFixed) {
+        try {
+            Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop
+            $policyFixed = (@('RemoteSigned', 'Bypass', 'Unrestricted') -contains (Get-ExecutionPolicy))
+            if ($policyFixed) {
+                Write-Host "  ℹ️  Using session-only 'Bypass' (CurrentUser scope was locked)." -ForegroundColor Yellow
+            }
+        } catch { }
+    }
+    if ($policyFixed) {
+        Write-Host "  ✅  Effective execution policy now allows scripts" -ForegroundColor Green
+    } else {
         Write-Host "  ❌  Failed to set execution policy: $_" -ForegroundColor Red
         Write-Host "     Run manually as Administrator:" -ForegroundColor Yellow
         Write-Host "     Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned" -ForegroundColor Yellow
+        Write-Host "     Diagnose scopes with:" -ForegroundColor Yellow
+        Write-Host "     Get-ExecutionPolicy -List" -ForegroundColor Yellow
         exit 1
     }
 }

@@ -93,9 +93,28 @@ fetch_and_run() {
 preflight_checks() {
   printf "${CYAN}🔍  Preflight checks...${NC}\n"
 
+  # Probe with whichever downloader exists — curl isn't always preinstalled
+  # (fresh containers/servers); Base tools installs it right after this.
+  local have_downloader=0 net_ok=1
+  if command -v curl &>/dev/null; then
+    have_downloader=1
+    curl -fsS --max-time 5 -o /dev/null https://github.com && net_ok=0
+  elif command -v wget &>/dev/null; then
+    have_downloader=1
+    wget -q --timeout=5 -O /dev/null https://github.com && net_ok=0
+  fi
   # Fallback host guards against DNS/CDN hiccups blocking a working network.
-  if curl -fsS --max-time 5 -o /dev/null https://github.com \
-     || curl -fsS --max-time 5 -o /dev/null https://1.1.1.1; then
+  if [[ $have_downloader -eq 1 && $net_ok -ne 0 ]]; then
+    if command -v curl &>/dev/null; then
+      curl -fsS --max-time 5 -o /dev/null https://1.1.1.1 && net_ok=0
+    else
+      wget -q --timeout=5 -O /dev/null https://1.1.1.1 && net_ok=0
+    fi
+  fi
+
+  if [[ $have_downloader -eq 0 ]]; then
+    printf "${YELLOW}⚠️ ${NC}  No curl/wget yet — skipping internet check (Base tools installs curl).\n"
+  elif [[ $net_ok -eq 0 ]]; then
     printf "${GREEN}✅${NC}  Internet connection OK\n"
   else
     printf "${RED}❌${NC}  No internet connection. Check your network and retry.\n"

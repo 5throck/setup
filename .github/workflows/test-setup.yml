@@ -45,8 +45,8 @@ jobs:
     container: ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install sudo (base image lacks it)
-        run: apt-get update -q && apt-get install -y -q sudo
+      - name: Install sudo and curl (base image lacks them)
+        run: apt-get update -q && apt-get install -y -q sudo curl
       - name: Create non-root user
         run: |
           useradd -m -s /bin/bash runner

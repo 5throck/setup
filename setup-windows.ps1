@@ -29,7 +29,17 @@ $UvVersion  = if ($env:UV_VERSION)  { $env:UV_VERSION }  else { "latest" }
 function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
     $tmp = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
     try {
-        Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+        # Retry transient network failures (parity with curl --retry in bash).
+        $downloaded = $false
+        for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
+            try {
+                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                $downloaded = $true
+            } catch {
+                if ($attempt -ge 3) { throw }
+                Start-Sleep -Seconds (2 * $attempt)
+            }
+        }
         # Downloaded files carry Mark-of-the-Web (Zone.Identifier ADS); under
         # RemoteSigned, unsigned remote scripts are blocked with "not digitally
         # signed" until unblocked.
@@ -51,6 +61,23 @@ $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 # ── TLS 1.2 enforcement (required for irm/Invoke-WebRequest on PS 5.1) ─────
 [Net.ServicePointManager]::SecurityProtocol =
     [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+
+# ── Log setup (started early so guard/preflight steps are captured too) ──────
+$LogDir  = "$env:USERPROFILE\workshop-setup-logs"
+$LogFile = Join-Path $LogDir "setup-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+try {
+    Start-Transcript -Path $LogFile -Append -ErrorAction Stop | Out-Null
+    $transcriptStarted = $true
+} catch {
+    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (trans 실패): $_" -ForegroundColor Yellow
+    $transcriptStarted = $false
+}
+
+# ── Graceful shutdown on Ctrl+C ──────────────────────────────────────────────
+$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+    Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
+} -ErrorAction SilentlyContinue
 
 # ── Execution policy guard ────────────────────────────────────────────────────
 # Prevents "running scripts is disabled on this system".
@@ -104,8 +131,9 @@ if (-not $allowsScripts) {
     }
 }
 
-# ── Admin check ───────────────────────────────────────────────────────────────
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole("Administrators")
+# ── Admin check (locale-independent, via BUILTIN\Administrators SID) ─────────
+$adminSid = [Security.Principal.SecurityIdentifier]'S-1-5-32-544'
+$isAdmin  = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole($adminSid)
 if (-not $isAdmin) {
     Write-Host "  ⚠️  관리자 권한으로 실행되지 않았습니다." -ForegroundColor Yellow
     Write-Host "     winget, WSL2 등 일부 설치에서 오류가 발생할 수 있습니다." -ForegroundColor Yellow
@@ -135,10 +163,9 @@ if ($freeSpace -and $freeSpace -lt 5368709120) {
 }
 
 # OS version
-$osVersion = [Environment]::OSVersion.Version
 $osBuild = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -ErrorAction SilentlyContinue).CurrentBuild
 if ($osBuild -and [int]$osBuild -lt 22000) {
-    Write-Host ("  ⚠️  Windows 11 권장. 현재 빌드: $osBuild (Windows 10)" -f $osVersion.Major) -ForegroundColor Yellow
+    Write-Host "  ⚠️  Windows 11 권장. 현재 빌드: $osBuild (Windows 10)" -ForegroundColor Yellow
 } else {
     Write-Host "  ✅  OS 버전 확인 완료" -ForegroundColor Green
 }
@@ -156,8 +183,17 @@ function Section($num, $total, $label) {
     Write-Host ("[{0}/{1}] {2,-32} [{3}] {4,3}%" -f $num, $total, $label, $bar, $pct) -ForegroundColor Cyan
 }
 
-function RunStep($label, [scriptblock]$block) {
-    $job = Start-Job -ScriptBlock $block
+function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
+    # Jobs run in a fresh process: scriptblocks don't survive -ArgumentList
+    # marshaling on PS 5.1, so pass the source as text and recreate it inside.
+    # Native-command failures (nonzero $LASTEXITCODE) fail the step — matches
+    # run_step() behavior in setup-lib.sh.
+    $job = Start-Job -ScriptBlock {
+        param($blockText, $innerArgs)
+        $userBlock = [scriptblock]::Create($blockText)
+        & $userBlock @innerArgs
+        if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    } -ArgumentList ($block.ToString()), $blockArgs
     $i   = 0
     while ($job.State -eq 'Running') {
         $ch = $SpinChars[$i % $SpinChars.Count]
@@ -165,23 +201,19 @@ function RunStep($label, [scriptblock]$block) {
         $i++
         Start-Sleep -Milliseconds 80
     }
-    $null = Receive-Job $job -Wait -ErrorAction SilentlyContinue
-    $ok   = ($job.ChildJobs[0].JobStateInfo.State -eq 'Completed') -and ($job.ChildJobs[0].Error.Count -eq 0)
+    $output = @(Receive-Job $job -Wait -ErrorAction SilentlyContinue 2>&1 |
+                ForEach-Object { $_.ToString() } | Where-Object { $_.Trim() })
+    $child  = $job.ChildJobs[0]
+    $ok     = ($child.JobStateInfo.State -eq 'Completed') -and ($child.Error.Count -eq 0)
 
     if ($ok) {
         Write-Host ("`r✅  $label") -ForegroundColor Green
     } else {
-        # Show last 5 error lines for debugging
-        $errOutput = $job.ChildJobs[0].Error | ForEach-Object { $_.ToString() } | Select-Object -First 5
-        if ($errOutput) {
-            foreach ($line in $errOutput) {
-                Write-Host "     $line" -ForegroundColor DarkGray
-            }
-        }
-        $stdErr = $job.ChildJobs[0].Error
-        if (-not $errOutput -and $stdErr) {
-            $stdErrStr = $stdErr | Select-Object -First 1 | ForEach-Object { $_.Exception.Message }
-            if ($stdErrStr) { Write-Host "     $stdErrStr" -ForegroundColor DarkGray }
+        # Show last 5 diagnostic lines (errors first, then captured output)
+        $diag = @($child.Error | ForEach-Object { $_.ToString() })
+        if ($diag.Count -eq 0) { $diag = $output }
+        foreach ($line in ($diag | Select-Object -Last 5)) {
+            Write-Host "     $line" -ForegroundColor DarkGray
         }
         Write-Host ("`r❌  $label") -ForegroundColor Red
         $Errors.Add($label)
@@ -202,23 +234,6 @@ function RefreshEnv {
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
                 [System.Environment]::GetEnvironmentVariable("PATH", "User")
 }
-
-# ── Log setup ────────────────────────────────────────────────────────────────
-$LogDir  = "$env:USERPROFILE\workshop-setup-logs"
-$LogFile = Join-Path $LogDir "setup-windows-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
-New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
-try {
-    Start-Transcript -Path $LogFile -Append -ErrorAction Stop | Out-Null
-    $transcriptStarted = $true
-} catch {
-    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (trans 실패): $_" -ForegroundColor Yellow
-    $transcriptStarted = $false
-}
-
-# ── Graceful shutdown on Ctrl+C ──────────────────────────────────────────────
-$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
-    Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
-} -ErrorAction SilentlyContinue
 
 # ── Header ────────────────────────────────────────────────────────────────────
 Clear-Host
@@ -453,8 +468,9 @@ if ((-not $Force) -and (Installed uv)) {
 } else {
     if ($UvVersion -ne "latest") {
         RunStep "Install uv ($UvVersion)" {
-            winget install --id astral-sh.uv --version $UvVersion --silent --accept-source-agreements
-        }
+            param($ver)
+            winget install --id astral-sh.uv --version $ver --silent --accept-source-agreements
+        } @($UvVersion)
     } else {
         RunStep "Install uv" {
             winget install --id astral-sh.uv --silent --accept-source-agreements
@@ -558,6 +574,9 @@ if ($Errors.Count -eq 0) {
 }
 Write-Host "  ══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
+
+# Exit non-zero on failures (parity with setup-linux.sh / setup-mac.sh)
+if ($Errors.Count -gt 0) { exit 1 }
 
 # ════════════════════════════════════════════════════════════════════════════════
 } finally {

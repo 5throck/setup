@@ -76,7 +76,7 @@ fetch_and_run() {
   local url="$1"; shift
   local runner=("$@")
   local tmp; tmp=$(mktemp)
-  if ! curl -fsSL "$url" -o "$tmp"; then
+  if ! curl -fsSL --retry 3 --retry-delay 1 "$url" -o "$tmp"; then
     rm -f "$tmp"
     return 1
   fi
@@ -93,7 +93,9 @@ fetch_and_run() {
 preflight_checks() {
   printf "${CYAN}🔍  Preflight checks...${NC}\n"
 
-  if curl -fsS --max-time 5 -o /dev/null https://github.com; then
+  # Fallback host guards against DNS/CDN hiccups blocking a working network.
+  if curl -fsS --max-time 5 -o /dev/null https://github.com \
+     || curl -fsS --max-time 5 -o /dev/null https://1.1.1.1; then
     printf "${GREEN}✅${NC}  Internet connection OK\n"
   else
     printf "${RED}❌${NC}  No internet connection. Check your network and retry.\n"
@@ -133,4 +135,8 @@ cleanup() {
     printf "${DIM}  📝  Log saved: %s${NC}\n" "$LOG_FILE"
   fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# Exit explicitly on signals so Ctrl+C actually stops the script
+# (a bare `trap cleanup INT` would resume execution after the handler).
+trap 'exit 130' INT
+trap 'exit 143' TERM

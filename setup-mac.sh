@@ -52,6 +52,10 @@ else
   if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
     echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+  elif [[ -f /usr/local/bin/brew ]]; then
+    # Intel Macs install Homebrew under /usr/local
+    eval "$(/usr/local/bin/brew shellenv)"
+    echo 'eval "$(/usr/local/bin/brew shellenv)"' >> "$HOME/.zprofile"
   fi
 fi
 
@@ -84,8 +88,10 @@ if should_install bun; then
   rm -f "$BUN_TMP"
   export PATH="$HOME/.bun/bin:$PATH"
   for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
-    [[ -f "$rc" ]] && ! grep -q 'bun' "$rc" \
-      && echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$rc"
+    # touch: default shell rc may not exist yet (fresh accounts)
+    touch "$rc"
+    grep -qF '.bun/bin' "$rc" \
+      || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$rc"
   done
 else
   printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"

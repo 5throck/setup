@@ -76,7 +76,7 @@ fetch_and_run() {
   local url="$1"; shift
   local runner=("$@")
   local tmp; tmp=$(mktemp)
-  if ! curl -fsSL "$url" -o "$tmp"; then
+  if ! curl -fsSL --retry 3 --retry-delay 1 "$url" -o "$tmp"; then
     rm -f "$tmp"
     return 1
   fi
@@ -93,7 +93,28 @@ fetch_and_run() {
 preflight_checks() {
   printf "${CYAN}🔍  Preflight checks...${NC}\n"
 
-  if curl -fsS --max-time 5 -o /dev/null https://github.com; then
+  # Probe with whichever downloader exists — curl isn't always preinstalled
+  # (fresh containers/servers); Base tools installs it right after this.
+  local have_downloader=0 net_ok=1
+  if command -v curl &>/dev/null; then
+    have_downloader=1
+    curl -fsS --max-time 5 -o /dev/null https://github.com && net_ok=0
+  elif command -v wget &>/dev/null; then
+    have_downloader=1
+    wget -q --timeout=5 -O /dev/null https://github.com && net_ok=0
+  fi
+  # Fallback host guards against DNS/CDN hiccups blocking a working network.
+  if [[ $have_downloader -eq 1 && $net_ok -ne 0 ]]; then
+    if command -v curl &>/dev/null; then
+      curl -fsS --max-time 5 -o /dev/null https://1.1.1.1 && net_ok=0
+    else
+      wget -q --timeout=5 -O /dev/null https://1.1.1.1 && net_ok=0
+    fi
+  fi
+
+  if [[ $have_downloader -eq 0 ]]; then
+    printf "${YELLOW}⚠️ ${NC}  No curl/wget yet — skipping internet check (Base tools installs curl).\n"
+  elif [[ $net_ok -eq 0 ]]; then
     printf "${GREEN}✅${NC}  Internet connection OK\n"
   else
     printf "${RED}❌${NC}  No internet connection. Check your network and retry.\n"
@@ -133,4 +154,8 @@ cleanup() {
     printf "${DIM}  📝  Log saved: %s${NC}\n" "$LOG_FILE"
   fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# Exit explicitly on signals so Ctrl+C actually stops the script
+# (a bare `trap cleanup INT` would resume execution after the handler).
+trap 'exit 130' INT
+trap 'exit 143' TERM

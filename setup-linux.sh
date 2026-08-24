@@ -98,7 +98,7 @@ if should_install bun; then
   fi
   rm -f "$BUN_TMP"
   export PATH="$HOME/.bun/bin:$PATH"
-  grep -q 'bun' "$HOME/.bashrc" 2>/dev/null \
+  grep -qF '.bun/bin' "$HOME/.bashrc" 2>/dev/null \
     || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$HOME/.bashrc"
 else
   printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"
@@ -149,7 +149,7 @@ if installed google-chrome || installed google-chrome-stable; then
   printf "${GREEN}✅${NC}  Google Chrome ${DIM}(already installed)${NC}\n"
 else
   run_step "Download Chrome .deb" bash -c \
-    'wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -O /tmp/chrome.deb'
+    'curl -fsSL --retry 3 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb'
   run_step "Install Google Chrome" bash -c \
     'sudo dpkg -i /tmp/chrome.deb || sudo apt-get install -f -y -q; rm -f /tmp/chrome.deb'
 fi

@@ -49,13 +49,17 @@ if installed brew; then
 else
   run_step "Install Homebrew" fetch_and_run \
     https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh bash
+  add_brew_shellenv() { # eval + persist to .zprofile (idempotent)
+    eval "$($1/brew shellenv)"
+    touch "$HOME/.zprofile"
+    grep -qF "$1/bin/brew shellenv" "$HOME/.zprofile" 2>/dev/null \
+      || echo "eval \"\$($1/bin/brew shellenv)\"" >> "$HOME/.zprofile"
+  }
   if [[ -f /opt/homebrew/bin/brew ]]; then
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> "$HOME/.zprofile"
+    add_brew_shellenv /opt/homebrew
   elif [[ -f /usr/local/bin/brew ]]; then
     # Intel Macs install Homebrew under /usr/local
-    eval "$(/usr/local/bin/brew shellenv)"
-    echo 'eval "$(/usr/local/bin/brew shellenv)"' >> "$HOME/.zprofile"
+    add_brew_shellenv /usr/local
   fi
 fi
 
@@ -71,31 +75,7 @@ done
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
 section 3 $TOTAL "Runtime: bun"
-if should_install bun; then
-  BUN_TMP=$(mktemp)
-  if curl -fsSL https://bun.sh/install -o "$BUN_TMP"; then
-    BUN_SUM=$(shasum -a 256 "$BUN_TMP" | cut -d' ' -f1)
-    printf "     ${DIM}installer sha256: %s${NC}\n" "$BUN_SUM"
-    if [[ "$BUN_VERSION" != "latest" ]]; then
-      run_step "Install bun ($BUN_VERSION)" bash "$BUN_TMP" "$BUN_VERSION"
-    else
-      run_step "Install bun (latest)" bash "$BUN_TMP"
-    fi
-  else
-    printf "${RED}❌${NC}  Failed to download bun installer\n"
-    ERRORS+=("Install bun")
-  fi
-  rm -f "$BUN_TMP"
-  export PATH="$HOME/.bun/bin:$PATH"
-  for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
-    # touch: default shell rc may not exist yet (fresh accounts)
-    touch "$rc"
-    grep -qF '.bun/bin' "$rc" \
-      || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$rc"
-  done
-else
-  printf "${GREEN}✅${NC}  bun ${DIM}$(bun --version) (already installed)${NC}\n"
-fi
+install_bun "$HOME/.zshrc" "$HOME/.bashrc"
 
 # ── 4. Runtime: python3 ───────────────────────────────────────────────────────
 section 4 $TOTAL "Runtime: python3"
@@ -178,29 +158,7 @@ fi
 
 # ── 8. Git config check ───────────────────────────────────────────────────────
 section 8 $TOTAL "Git & GitHub"
-GIT_NAME=$(git config --global user.name  2>/dev/null || true)
-GIT_EMAIL=$(git config --global user.email 2>/dev/null || true)
-if [[ -n "$GIT_NAME" && -n "$GIT_EMAIL" ]]; then
-  printf "${GREEN}✅${NC}  git config: ${CYAN}%s <%s>${NC}\n" "$GIT_NAME" "$GIT_EMAIL"
-else
-  printf "${YELLOW}⚠️ ${NC}  git user not configured\n"
-  printf "     ${DIM}git config --global user.name 'Your Name'${NC}\n"
-  printf "     ${DIM}git config --global user.email 'you@example.com'${NC}\n"
-fi
-
-if gh auth status &>/dev/null; then
-  printf "${GREEN}✅${NC}  gh auth: logged in\n"
-else
-  printf "${YELLOW}⚠️ ${NC}  gh auth: not logged in — run ${CYAN}gh auth login${NC} before the workshop\n"
-fi
+check_git_and_gh
 
 # ── Summary ───────────────────────────────────────────────────────────────────
-printf "\n${BOLD}${CYAN}══════════════════════════════════════════${NC}\n"
-if [[ ${#ERRORS[@]} -eq 0 ]]; then
-  printf "${GREEN}✅  All steps complete!${NC}\n"
-  printf "\n  Next → ${CYAN}bun setup-common.ts${NC}\n"
-else
-  printf "${RED}❌  Failed: %s${NC}\n" "${ERRORS[*]}"
-  exit 1
-fi
-printf "${BOLD}${CYAN}══════════════════════════════════════════${NC}\n\n"
+print_summary

@@ -55,7 +55,8 @@ run_step() {
     printf "\r${GREEN}✅${NC}  %s\n" "$label"
   else
     printf "\r${RED}❌${NC}  %s\n" "$label"
-    sed 's/^/     /' "$tmplog" | head -5 || true
+    # tail: errors usually appear at the end of output (matches PS RunStep)
+    sed 's/^/     /' "$tmplog" | tail -5 || true
     ERRORS+=("$label")
   fi
   rm -f "$tmplog"
@@ -69,6 +70,13 @@ should_install() {
   ! installed "$1" || [[ $FORCE -eq 1 ]]
 }
 
+# Print the SHA-256 of a downloaded installer for auditability.
+print_sha256() {
+  local sum
+  sum=$(command -v sha256sum &>/dev/null && sha256sum "$1" | cut -d' ' -f1 || shasum -a 256 "$1" | cut -d' ' -f1)
+  printf "     ${DIM}installer sha256: %s${NC}\n" "$sum"
+}
+
 # Download a remote installer to a temp file, print its SHA-256 for auditability,
 # then execute it — safer than a bare `curl | bash` because the script is on disk
 # (reviewable, loggable) before it runs.
@@ -80,13 +88,78 @@ fetch_and_run() {
     rm -f "$tmp"
     return 1
   fi
-  local sum
-  sum=$(command -v sha256sum &>/dev/null && sha256sum "$tmp" | cut -d' ' -f1 || shasum -a 256 "$tmp" | cut -d' ' -f1)
-  printf "     ${DIM}installer sha256: %s${NC}\n" "$sum"
+  print_sha256 "$tmp"
   "${runner[@]}" "$tmp"
   local rc=$?
   rm -f "$tmp"
   return $rc
+}
+
+# Install bun via the official installer, or `bun upgrade` when already present
+# (parity with setup-windows.ps1). Accepts shell rc file paths as arguments;
+# a PATH export line is appended to each (idempotent).
+install_bun() {
+  local rc_files=("$@")
+  if installed bun && [[ $FORCE -eq 0 ]]; then
+    run_step "Update bun" bun upgrade
+    export PATH="$HOME/.bun/bin:$PATH"
+  else
+    local tmp; tmp=$(mktemp)
+    if curl -fsSL --retry 3 --retry-delay 1 https://bun.sh/install -o "$tmp"; then
+      print_sha256 "$tmp"
+      if [[ "$BUN_VERSION" != "latest" ]]; then
+        run_step "Install bun ($BUN_VERSION)" bash "$tmp" "$BUN_VERSION"
+      else
+        run_step "Install bun (latest)" bash "$tmp"
+      fi
+    else
+      printf "${RED}❌${NC}  Failed to download bun installer\n"
+      ERRORS+=("Install bun")
+      rm -f "$tmp"
+      return 1
+    fi
+    rm -f "$tmp"
+    export PATH="$HOME/.bun/bin:$PATH"
+  fi
+  for rc in "${rc_files[@]}"; do
+    # touch: default shell rc may not exist yet (fresh accounts)
+    touch "$rc"
+    grep -qF '.bun/bin' "$rc" 2>/dev/null \
+      || echo 'export PATH="$HOME/.bun/bin:$PATH"' >> "$rc"
+  done
+}
+
+# Verify git identity and gh auth status, warning when unconfigured.
+check_git_and_gh() {
+  local git_name git_email
+  git_name=$(git config --global user.name  2>/dev/null || true)
+  git_email=$(git config --global user.email 2>/dev/null || true)
+  if [[ -n "$git_name" && -n "$git_email" ]]; then
+    printf "${GREEN}✅${NC}  git config: ${CYAN}%s <%s>${NC}\n" "$git_name" "$git_email"
+  else
+    printf "${YELLOW}⚠️ ${NC}  git user not configured\n"
+    printf "     ${DIM}git config --global user.name 'Your Name'${NC}\n"
+    printf "     ${DIM}git config --global user.email 'you@example.com'${NC}\n"
+  fi
+
+  if gh auth status &>/dev/null; then
+    printf "${GREEN}✅${NC}  gh auth: logged in\n"
+  else
+    printf "${YELLOW}⚠️ ${NC}  gh auth: not logged in — run ${CYAN}gh auth login${NC} before the workshop\n"
+  fi
+}
+
+# Final summary; exits 1 when any step failed.
+print_summary() {
+  printf "\n${BOLD}${CYAN}══════════════════════════════════════════${NC}\n"
+  if [[ ${#ERRORS[@]} -eq 0 ]]; then
+    printf "${GREEN}✅  All steps complete!${NC}\n"
+    printf "\n  Next → ${CYAN}bun setup-common.ts${NC}\n"
+  else
+    printf "${RED}❌  Failed: %s${NC}\n" "${ERRORS[*]}"
+    exit 1
+  fi
+  printf "${BOLD}${CYAN}══════════════════════════════════════════${NC}\n\n"
 }
 
 # ── Preflight checks: internet, disk space, OS info ───────────────────────────

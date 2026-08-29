@@ -389,21 +389,14 @@ if ($WSL2) {
 Section 5 $TOTAL "Runtime: bun"
 $bunBinPath = "$env:USERPROFILE\.bun\bin"
 
-# Detect whether current session is Windows PowerShell 5.1 (not PowerShell 7+)
-$isLegacyPS = ($PSVersionTable.PSVersion.Major -lt 7)
-
 if ((-not $Force) -and (Installed bun)) {
-    # bun already present — ensure it is up-to-date
-    if ($isLegacyPS -or $Force) {
-        Write-Host "  ℹ️  Updating bun to latest version..." -ForegroundColor DarkGray
-        $updateOk = RunStep "Update bun" { & bun upgrade }
-        if (-not $updateOk) {
-            Write-Host "  ⚠️  bun update failed — will retry full install" -ForegroundColor Yellow
-            $Force = $true  # fall through to full install below
-        }
-    }
-    if ((-not $Force) -and (Installed bun)) {
+    # bun already present — update to latest (parity with bash scripts' `bun upgrade`)
+    $updateOk = RunStep "Update bun" { & bun upgrade }
+    if ($updateOk) {
         Write-Host "✅  bun $(bun --version) (already installed & up-to-date)" -ForegroundColor Green
+    } else {
+        Write-Host "  ⚠️  bun update failed — will retry full install" -ForegroundColor Yellow
+        $Force = $true  # fall through to full install below
     }
 }
 if ((-not (Installed bun)) -or $Force) {
@@ -484,6 +477,10 @@ if ((-not $Force) -and (Installed uv)) {
         } | Out-Null
         RefreshEnv
     }
+    if (-not (Installed uv)) {
+        Write-Host "❌  uv install failed" -ForegroundColor Red
+        $Errors.Add("Install uv")
+    }
 }
 
 # ── 8. CLI tools ──────────────────────────────────────────────────────────────
@@ -509,11 +506,17 @@ if ((-not $Force) -and (Installed claude)) {
 if ((-not $Force) -and (Installed agy)) {
     Write-Host "✅  agy (already installed)" -ForegroundColor Green
 } else {
-    Invoke-RemoteInstaller "https://antigravity.google/cli/install.ps1" {
+    $agyOk = Invoke-RemoteInstaller "https://antigravity.google/cli/install.ps1" {
         param($installerPath)
         & $installerPath
-    } | Out-Null
+    }
     RefreshEnv
+    if ($agyOk -and (Installed agy)) {
+        Write-Host "✅  agy installed" -ForegroundColor Green
+    } else {
+        Write-Host "❌  Antigravity CLI install failed" -ForegroundColor Red
+        $Errors.Add("Install agy")
+    }
 }
 
 # ── 9. Desktop apps ───────────────────────────────────────────────────────────

@@ -88,7 +88,13 @@ bash setup-linux.sh --force
 Open **PowerShell as Administrator** and run:
 
 ```powershell
-# Run setup (Execution Policy is auto-configured by the script)
+# Run setup — launch with Bypass so the script itself is allowed to run
+# (the script's internal policy guard can't help if the script is blocked
+# from starting in the first place)
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+
+# Alternatively, allow scripts for this terminal session only, then run:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1
 
 # Options:
@@ -97,6 +103,8 @@ Open **PowerShell as Administrator** and run:
 .\setup-windows.ps1 -Docker    # also install Docker Desktop
 .\setup-windows.ps1 -Force      # reinstall all tools even if already installed
 .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # all optional tools
+# (these direct forms also work after the session-only Set-ExecutionPolicy above;
+#  without it, use: powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 [-WSL2] ...)
 ```
 
 > **After running**: close and reopen the terminal so PATH changes take effect.
@@ -112,7 +120,7 @@ BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
 
 ```powershell
 # Windows
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; .\setup-windows.ps1
+$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ---
@@ -187,13 +195,13 @@ The script automatically retries with npm fallback if bun fails. If issues persi
 The Antigravity CLI install script places the binary in `~/.local/bin` or `/usr/local/bin`. Run `source ~/.bashrc` or restart your terminal.
 
 **Windows: `execution of scripts is disabled`**
-The script auto-configures the policy: it sets `CurrentUser` → `RemoteSigned`, falling back to a session-only `Process` bypass if that fails. To set manually:
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-Or run once without changing any persistent setting:
+PowerShell blocks unsigned scripts before they can start, so the script's internal policy guard cannot run in that state. Launch the script with the policy already bypassed (see Step 2):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+To fix persistently (per-user, survives new terminals):
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 If the script reports the policy is **enforced by Group Policy** (`MachinePolicy`/`UserPolicy` scope), local changes cannot override it — ask IT to enable script execution under `Computer Configuration > Administrative Templates > Windows Components > Windows PowerShell > Turn on Script Execution`, and check applied policies with `gpresult /R`. Downloaded `.ps1` files may also need `Unblock-File .\file.ps1`.
 

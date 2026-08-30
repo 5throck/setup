@@ -36,6 +36,7 @@
   - **Windows**: 시작 → **"PowerShell"** 검색 → 우클릭 → **"관리자 권한으로 실행"**
     - 또는: `Win + X` → **"터미널(관리자)"** / **"Windows PowerShell(관리자)"**
     - 이후 뜨는 UAC(사용자 계정 컨트롤) 확인 창에서 **"예"** 클릭
+    - 참고: PowerShell에서 *"스크립트 실행이 비활성화되어 있습니다"* 오류가 나면 `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1`으로 실행하세요 (자세한 내용은 [`SETUP_ko.md`](SETUP_ko.md) 참고)
   - **macOS / Linux**: 명령어 앞에 `sudo`를 붙여서 실행
 - [ ] 안정적인 인터넷 연결 (총 다운로드 용량 약 1–2 GB)
 

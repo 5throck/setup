@@ -1,6 +1,8 @@
 ﻿# Workshop Setup — Windows
 # Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force]
 # Run PowerShell as Administrator before executing.
+# If execution policy blocks the script from starting, launch with:
+#   powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 #
 # Env overrides for reproducible installs: $env:BUN_VERSION, $env:UV_VERSION
 # (default: latest). Example: $env:BUN_VERSION="1.1.34"; .\setup-windows.ps1

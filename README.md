@@ -17,7 +17,7 @@ bash setup-mac.sh
 bash setup-linux.sh
 
 # Windows (run PowerShell as Administrator)
-.\setup-windows.ps1
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 3. Verify everything installed correctly:
@@ -52,7 +52,7 @@ BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
 ```
 
 ```powershell
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; .\setup-windows.ps1
+$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ## Security note

@@ -36,6 +36,7 @@ These tools require an active subscription to run during the workshop.
   - **Windows**: Open Start → search **"PowerShell"** → right-click → **"Run as administrator"**
     - Or: `Win + X` → **"Terminal (Admin)"** / **"Windows PowerShell (Admin)"**
     - Confirm the UAC prompt that appears
+    - Note: if PowerShell reports *"running scripts is disabled"*, launch the setup script with `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1` (see [`SETUP.md`](SETUP.md))
   - **macOS / Linux**: prefix commands with `sudo` when prompted
 - [ ] Stable internet connection (downloads ~1–2 GB total)
 

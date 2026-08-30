@@ -17,7 +17,7 @@ bash setup-mac.sh
 bash setup-linux.sh
 
 # Windows (PowerShell을 관리자 권한으로 실행)
-.\setup-windows.ps1
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 3. 설치가 제대로 됐는지 검증합니다.
@@ -52,7 +52,7 @@ BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
 ```
 
 ```powershell
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; .\setup-windows.ps1
+$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ## 보안 참고사항

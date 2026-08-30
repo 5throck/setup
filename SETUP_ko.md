@@ -82,15 +82,20 @@ bash setup-linux.sh --wezterm --docker
 **PowerShell을 관리자 권한으로 실행**한 뒤 아래 명령어를 입력하세요:
 
 ```powershell
-# 기본 실행 (Execution Policy은 스크립트가 자동으로 설정합니다)
+# 기본 실행 — 스크립트 자체가 차단되지 않도록 Bypass로 실행
+# (스크립트 내부의 정책 가드는 스크립트가 시작조차 되지 않으면 동작할 수 없음)
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+
+# 또는 이 터미널 세션에 한해 스크립트 실행을 허용한 뒤 실행:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1
 
 # 옵션:
-.\setup-windows.ps1 -WSL2             # WSL2 함께 설치 (재시작 필요)
-.\setup-windows.ps1 -WezTerm          # WezTerm 함께 설치
-.\setup-windows.ps1 -Docker            # Docker Desktop 함께 설치
-.\setup-windows.ps1 -Force             # 이미 설치된 도구도 모두 재설치
-.\setup-windows.ps1 -WSL2 -WezTerm -Docker  # 선택 옵션 전부 설치
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2             # WSL2 함께 설치 (재시작 필요)
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WezTerm          # WezTerm 함께 설치
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Docker            # Docker Desktop 함께 설치
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Force             # 이미 설치된 도구도 모두 재설치
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # 선택 옵션 전부 설치
 ```
 
 > **실행 후**: 터미널을 닫고 다시 열어 PATH 변경 사항을 반영하세요.
@@ -165,13 +170,13 @@ export PATH="$HOME/.bun/bin:$PATH"
 Antigravity CLI 설치 스크립트는 바이너리를 `~/.local/bin` 또는 `/usr/local/bin`에 저장합니다. `source ~/.bashrc`를 실행하거나 터미널을 재시작하세요.
 
 **Windows: `스크립트 실행이 비활성화되어 있습니다`**
-스크립트가 자동으로 정책을 구성합니다: `CurrentUser` → `RemoteSigned` 설정을 시도하고, 실패하면 세션 전용 `Process` 스코프 우회로 전환합니다. 수동으로 변경하려면:
-```powershell
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-설정을 영구 변경하지 않고 1회만 실행하려면:
+PowerShell은 서명되지 않은 스크립트를 시작 단계에서 차단하므로, 그 상태에서는 스크립트 내부의 정책 가드가 실행될 수 없습니다. 스크립트를 Bypass 정책으로 실행하세요 (2단계 참고):
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+영구적으로 변경하려면 (사용자 단위, 새 터미널에도 유지):
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 스크립트가 **그룹 정책에 의해 강제된다**고 표시하는 경우(`MachinePolicy`/`UserPolicy` 스코프) 로컬 변경으로는 해제할 수 없습니다 — IT 관리자에게 `컴퓨터 구성 > 관리 템플릿 > Windows 구성 요소 > Windows PowerShell > 스크립트 실행 켜기` 허용을 요청하고, 적용된 정책은 `gpresult /R`로 확인하세요. 인터넷에서 내려받은 `.ps1` 파일은 `Unblock-File .\파일.ps1`이 필요할 수 있습니다.
 

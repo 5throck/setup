@@ -81,6 +81,8 @@ bash setup-linux.sh --wezterm --docker
 
 **PowerShell을 관리자 권한으로 실행**한 뒤 아래 명령어를 입력하세요:
 
+> PowerShell 7+ 필요. Windows PowerShell 5.1로 실행하면 스크립트가 자동으로 `pwsh`로 재실행됩니다(설치되어 있지 않으면 winget으로 PowerShell 7을 먼저 설치).
+
 ```powershell
 # 기본 실행 — 스크립트 자체가 차단되지 않도록 Bypass로 실행
 # (스크립트 내부의 정책 가드는 스크립트가 시작조차 되지 않으면 동작할 수 없음)

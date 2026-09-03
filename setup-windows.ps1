@@ -1,5 +1,7 @@
 ﻿# Workshop Setup — Windows
 # Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force]
+# Requires PowerShell 7+. Under Windows PowerShell 5.1 the script relaunches
+# itself via pwsh automatically (installing PowerShell 7 first if needed).
 # Run PowerShell as Administrator before executing.
 # If execution policy blocks the script from starting, launch with:
 #   powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
@@ -131,6 +133,39 @@ if (-not $allowsScripts) {
         Write-Host "     Get-ExecutionPolicy -List" -ForegroundColor Yellow
         exit 1
     }
+}
+
+# ── PowerShell 7 requirement ─────────────────────────────────────────────────
+# The script's encoding handling, Start-Job usage, and winget output parsing
+# are written for PS 7+. On Windows PowerShell 5.1 they misbehave (garbled
+# UTF-8 output, job quirks), so relaunch under pwsh instead of limping along.
+if ($PSVersionTable.PSVersion.Major -lt 7) {
+    # Build args manually: splatting switch params to a native command on
+    # 5.1 emits "-Switch:$false", which pwsh -File rejects.
+    $relaunchArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    foreach ($sw in 'WSL2', 'WezTerm', 'Docker', 'Force') {
+        if (Get-Variable $sw -ValueOnly -ErrorAction SilentlyContinue) { $relaunchArgs += "-$sw" }
+    }
+    $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+    if (-not $pwshCmd) {
+        Write-Host "  ℹ️  PowerShell 7이 필요합니다 — winget으로 설치합니다..." -ForegroundColor Yellow
+        if (-not (Installed winget)) {
+            Write-Host "  ❌  winget이 없어 PowerShell 7을 자동 설치할 수 없습니다." -ForegroundColor Red
+            Write-Host "     'App Installer'를 설치하거나 https://aka.ms/powershell 에서 직접 설치하세요." -ForegroundColor Yellow
+            exit 1
+        }
+        winget install Microsoft.PowerShell --silent --accept-source-agreements --accept-package-agreements
+        RefreshEnv
+        $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+        if (-not $pwshCmd) {
+            Write-Host "  ⚠️  PowerShell 7 설치 후 PATH가 갱신되지 않았습니다." -ForegroundColor Yellow
+            Write-Host "     터미널을 다시 열고 스크립트를 다시 실행하세요." -ForegroundColor Yellow
+            exit 1
+        }
+    }
+    Write-Host "  ℹ️  PowerShell $($PSVersionTable.PSVersion)에서 실행됨 — PowerShell 7로 자동 재실행합니다..." -ForegroundColor Cyan
+    & $pwshCmd.Source @relaunchArgs
+    exit $LASTEXITCODE
 }
 
 # ── Admin check (locale-independent, via BUILTIN\Administrators SID) ─────────
@@ -350,19 +385,9 @@ if (Installed winget) {
 
 RefreshEnv
 
-# ── 2. PowerShell 7+ ─────────────────────────────────────────────────────────
+# ── 2. PowerShell 7+ (guaranteed by the relaunch guard above) ────────────────
 Section 2 $TOTAL "PowerShell 7+"
-$pwshPath = Get-Command pwsh -ErrorAction SilentlyContinue
-$pwshVersion = if ($pwshPath) { & pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()' 2>$null } else { $null }
-if ($PSVersionTable.PSVersion.Major -ge 7) {
-    Write-Host "✅  PowerShell $($PSVersionTable.PSVersion) (already installed)" -ForegroundColor Green
-} elseif ((-not $Force) -and $pwshVersion) {
-    Write-Host "✅  PowerShell $pwshVersion (already installed — relaunch terminal as pwsh to use it)" -ForegroundColor Green
-} else {
-    Install-WingetPackage "Microsoft.PowerShell" "Install PowerShell 7+"
-    RefreshEnv
-    Write-Host "  ⚠️  Restart terminal with PowerShell 7 and re-run after install." -ForegroundColor Yellow
-}
+Write-Host "✅  PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Green
 
 # ── 3. Terminal apps ──────────────────────────────────────────────────────────
 Section 3 $TOTAL "Terminal apps"

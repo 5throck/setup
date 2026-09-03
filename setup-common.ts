@@ -120,7 +120,15 @@ try {
 try {
   const r = await $`claude auth status`.quiet();
   const out = r.stdout.toString().trim();
-  rows.push([`${G}✅${N}`, "claude auth", out.split("\n")[0] || "logged in"]);
+  // `claude auth status` prints a multi-line JSON object whose first line is
+  // just "{" — parse it and surface the identity instead of the raw output.
+  let authInfo = "logged in";
+  try {
+    const j = JSON.parse(out);
+    if (j.email) authInfo += ` (${j.email})`;
+    if (j.subscriptionType) authInfo += ` — ${j.subscriptionType}`;
+  } catch { /* older versions print plain text; fall back to "logged in" */ }
+  rows.push([`${G}✅${N}`, "claude auth", authInfo]);
   results.push({ tool: "claude-auth", label: "claude auth", status: "ok", version: null });
 } catch {
   rows.push([`${Y}⚠️ ${N}`, "claude auth", `${Y}not logged in — run: claude login${N}`]);

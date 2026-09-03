@@ -191,11 +191,18 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
     # Native-command failures (nonzero $LASTEXITCODE) fail the step — matches
     # run_step() behavior in setup-lib.sh.
     $job = Start-Job -ScriptBlock {
-        param($blockText, $innerArgs)
+        param($blockText, $innerArgs, $parentPath)
+        # Fresh job processes inherit the parent's starting PATH, hiding tools
+        # installed earlier in the same run — sync with the parent's live PATH.
+        $env:PATH = $parentPath
+        # Jobs decode native (winget/bun) output with the OEM codepage (CP949
+        # on Korean Windows) → mojibake. Force UTF-8 to match the script.
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+        $OutputEncoding = [System.Text.Encoding]::UTF8
         $userBlock = [scriptblock]::Create($blockText)
         & $userBlock @innerArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    } -ArgumentList ($block.ToString()), $blockArgs
+    } -ArgumentList ($block.ToString()), $blockArgs, $env:PATH
     $i   = 0
     while ($job.State -eq 'Running') {
         $ch = $SpinChars[$i % $SpinChars.Count]
@@ -235,6 +242,25 @@ function ShouldInstall($cmd) {
 function RefreshEnv {
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
                 [System.Environment]::GetEnvironmentVariable("PATH", "User")
+}
+
+function Install-WingetPackage($Id, $Label) {
+    # `winget install` exits nonzero when the package is already installed
+    # ("use winget upgrade"), and `winget upgrade` exits nonzero when there is
+    # nothing to upgrade — so try upgrade, then install, and treat "already
+    # present" as success.
+    RunStep $Label {
+        param($pkgId)
+        winget upgrade --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                winget list --id $pkgId -e --accept-source-agreements 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) { exit 1 }
+                $global:LASTEXITCODE = 0  # already installed at latest — fine
+            }
+        }
+    } @($Id)
 }
 
 # ── Header ────────────────────────────────────────────────────────────────────
@@ -333,9 +359,7 @@ if ($PSVersionTable.PSVersion.Major -ge 7) {
 } elseif ((-not $Force) -and $pwshVersion) {
     Write-Host "✅  PowerShell $pwshVersion (already installed — relaunch terminal as pwsh to use it)" -ForegroundColor Green
 } else {
-    RunStep "Install PowerShell 7+" {
-        winget install Microsoft.PowerShell --silent --accept-source-agreements
-    }
+    Install-WingetPackage "Microsoft.PowerShell" "Install PowerShell 7+"
     RefreshEnv
     Write-Host "  ⚠️  Restart terminal with PowerShell 7 and re-run after install." -ForegroundColor Yellow
 }
@@ -345,17 +369,13 @@ Section 3 $TOTAL "Terminal apps"
 if ((-not $Force) -and (Get-AppxPackage -Name Microsoft.WindowsTerminal -ErrorAction SilentlyContinue)) {
     Write-Host "✅  Windows Terminal (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install Windows Terminal" {
-        winget install Microsoft.WindowsTerminal --silent --accept-source-agreements
-    }
+    Install-WingetPackage "Microsoft.WindowsTerminal" "Install Windows Terminal"
 }
 if ($WezTerm) {
     if ((-not $Force) -and (Installed wezterm)) {
         Write-Host "✅  WezTerm (already installed)" -ForegroundColor Green
     } else {
-        RunStep "Install WezTerm" {
-            winget install wez.wezterm --silent --accept-source-agreements
-        }
+        Install-WingetPackage "wez.wezterm" "Install WezTerm"
     }
 }
 
@@ -364,17 +384,13 @@ Section 4 $TOTAL "Git + Git Bash + gh"
 if ((-not $Force) -and (Installed git)) {
     Write-Host "✅  git $(git --version) (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install Git for Windows" {
-        winget install Git.Git --silent --accept-source-agreements
-    }
+    Install-WingetPackage "Git.Git" "Install Git for Windows"
     RefreshEnv
 }
 if ((-not $Force) -and (Installed gh)) {
     Write-Host "✅  gh $(gh --version | Select-Object -First 1) (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install GitHub CLI" {
-        winget install GitHub.cli --silent --accept-source-agreements
-    }
+    Install-WingetPackage "GitHub.cli" "Install GitHub CLI"
     RefreshEnv
 }
 if ($WSL2) {
@@ -393,7 +409,13 @@ $bunBinPath = "$env:USERPROFILE\.bun\bin"
 
 if ((-not $Force) -and (Installed bun)) {
     # bun already present — update to latest (parity with bash scripts' `bun upgrade`)
-    $updateOk = RunStep "Update bun" { & bun upgrade }
+    # bun's updater exits nonzero when already on the latest version; only a
+    # missing binary counts as failure.
+    $updateOk = RunStep "Update bun" {
+        & bun upgrade 2>&1
+        if (-not (Get-Command bun -ErrorAction SilentlyContinue)) { exit 1 }
+        $global:LASTEXITCODE = 0  # "already latest" exits nonzero — not a failure
+    }
     if ($updateOk) {
         Write-Host "✅  bun $(bun --version) (already installed & up-to-date)" -ForegroundColor Green
     } else {
@@ -467,9 +489,7 @@ if ((-not $Force) -and (Installed uv)) {
             winget install --id astral-sh.uv --version $ver --silent --accept-source-agreements
         } @($UvVersion)
     } else {
-        RunStep "Install uv" {
-            winget install --id astral-sh.uv --silent --accept-source-agreements
-        }
+        Install-WingetPackage "astral-sh.uv" "Install uv"
     }
     RefreshEnv
     if (-not (Installed uv)) {
@@ -526,16 +546,12 @@ Section 9 $TOTAL "Desktop apps"
 if ((-not $Force) -and (Test-Path "C:\Program Files\Google\Chrome\Application\chrome.exe")) {
     Write-Host "✅  Google Chrome (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install Google Chrome" {
-        winget install Google.Chrome --silent --accept-source-agreements
-    }
+    Install-WingetPackage "Google.Chrome" "Install Google Chrome"
 }
 if ((-not $Force) -and (Test-Path "$env:LOCALAPPDATA\Programs\Claude\Claude.exe")) {
     Write-Host "✅  Claude Desktop (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install Claude Desktop" {
-        winget install Anthropic.Claude --silent --accept-source-agreements
-    }
+    Install-WingetPackage "Anthropic.Claude" "Install Claude Desktop"
 }
 Write-Host "  ⚠️  Antigravity Desktop — install manually: https://antigravity.google" -ForegroundColor Yellow
 Write-Host "  ⚠️  Mark (Markdown viewer) — install manually: https://playloom.app/mark" -ForegroundColor Yellow
@@ -543,9 +559,7 @@ if ($Docker) {
     if ((-not $Force) -and (Installed docker)) {
         Write-Host "✅  Docker $(docker --version) (already installed)" -ForegroundColor Green
     } else {
-        RunStep "Install Docker Desktop" {
-            winget install Docker.DockerDesktop --silent --accept-source-agreements
-        }
+        Install-WingetPackage "Docker.DockerDesktop" "Install Docker Desktop"
         Write-Host "  ⚠️  Launch Docker Desktop once to complete setup." -ForegroundColor Yellow
     }
 }

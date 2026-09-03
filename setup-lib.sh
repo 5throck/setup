@@ -95,13 +95,31 @@ fetch_and_run() {
   return $rc
 }
 
+# bun's updater exits nonzero when already on the latest version — only a
+# missing binary counts as failure (parity with setup-windows.ps1).
+update_bun() {
+  local tmplog; tmplog=$(mktemp)
+  bun upgrade >"$tmplog" 2>&1
+  local rc=$?
+  if [ $rc -eq 0 ] || installed bun; then
+    printf "\r${GREEN}✅${NC}  Update bun\n"
+    [ $rc -ne 0 ] && printf "     %s\n" "$(tail -n 1 "$tmplog")"
+    rc=0
+  else
+    printf "\r${RED}❌${NC}  Update bun\n"
+    sed 's/^/     /' "$tmplog" | tail -5
+    ERRORS+=("Update bun")
+  fi
+  rm -f "$tmplog"
+}
+
 # Install bun via the official installer, or `bun upgrade` when already present
 # (parity with setup-windows.ps1). Accepts shell rc file paths as arguments;
 # a PATH export line is appended to each (idempotent).
 install_bun() {
   local rc_files=("$@")
   if installed bun && [[ $FORCE -eq 0 ]]; then
-    run_step "Update bun" bun upgrade
+    update_bun
     export PATH="$HOME/.bun/bin:$PATH"
   else
     local tmp; tmp=$(mktemp)

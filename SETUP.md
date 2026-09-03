@@ -87,6 +87,8 @@ bash setup-linux.sh --force
 
 Open **PowerShell as Administrator** and run:
 
+> The script requires PowerShell 7+. If started under Windows PowerShell 5.1, it relaunches itself via `pwsh` automatically (installing PowerShell 7 via winget first if needed).
+
 ```powershell
 # Run setup — launch with Bypass so the script itself is allowed to run
 # (the script's internal policy guard can't help if the script is blocked

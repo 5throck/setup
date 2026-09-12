@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-워크숍 실습을 위한 원샷 환경 설정 스크립트입니다. 기본 도구, 런타임(`bun`, `python3`, `uv`), CLI 도구(`gh`, `claude`, `agy`), 데스크톱 앱까지 macOS / Linux(Ubuntu·Debian) / Windows에서 자동으로 설치합니다.
+워크숍 실습을 위한 원샷 환경 설정 스크립트입니다. 기본 도구, 런타임(`bun`, `python3`, `uv`), CLI 도구(`gh`, `claude`, `codex`, `agy`), 데스크톱 앱까지 macOS / Linux(Ubuntu·Debian) / Windows에서 자동으로 설치합니다.
 
 ## 빠른 시작
 
@@ -38,7 +38,7 @@ bun setup-common.ts
 | `setup-lib.sh` | mac/linux 스크립트가 공통으로 source하는 bash 헬퍼: 진행률 UI, 사전 점검, 로그 저장, `--force`, 정리(cleanup) |
 | `setup-windows.ps1` | Windows 설치 스크립트 (PowerShell) |
 | `setup-common.ts` | OS 스크립트 실행 후 사용하는 크로스플랫폼 검증 스크립트 |
-| `check-docs-sync.sh` | `SETUP.md` 문서가 스크립트의 실제 플래그와 어긋나면 실패하는 CI 가드 |
+| `check-docs-sync.sh` | `SETUP.md` / `SETUP_ko.md` 문서가 스크립트의 실제 플래그와 어긋나면 실패하는 CI 가드 |
 | `.github/workflows/test-setup.yml` | CI: ShellCheck, 컨테이너에서 `setup-linux.sh` 실제 실행, PowerShell 구문 검사 |
 
 영문 문서: [`SETUP.md`](SETUP.md), [`SETUP_CHECKLIST.md`](SETUP_CHECKLIST.md).

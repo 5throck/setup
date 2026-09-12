@@ -108,8 +108,9 @@ else
 fi
 
 if should_install codex; then
-  run_step "Install Codex CLI" bun install -g @openai/codex \
-    || run_step "Install Codex CLI (npm fallback)" npm install -g @openai/codex
+  # The npm bin is a Node.js launcher, so use the brew-cask standalone binary
+  # (no Node dependency); brew's bin dir is already on PATH via shellenv.
+  run_step "Install Codex CLI" brew install --cask codex
 else
   printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
 fi

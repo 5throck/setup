@@ -126,7 +126,7 @@ bun setup-common.ts
 | **python3** | Python 런타임 | `brew install python3` | `apt install python3` | `winget Python.Python.3.13` |
 | **uv** | Python 패키지 매니저 | `brew install uv` | `astral.sh/uv/install.sh` | `winget astral-sh.uv` |
 | **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
-| **codex** | Codex CLI | `bun install -g @openai/codex` | `bun install -g @openai/codex` | `bun install -g @openai/codex` |
+| **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
 | **Google Chrome** | 브라우저 | `brew install --cask google-chrome` | `.deb` 직접 다운로드 | `winget Google.Chrome` |
 | **Claude Desktop** | Claude 데스크탑 앱 | `brew install --cask claude` | ⚠️ 수동 설치 | `winget Anthropic.Claude` |
@@ -172,8 +172,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 **`bun install -g` 후 `claude: command not found`**
 스크립트가 bun 실패 시 npm fallback으로 자동 재시도합니다. 여전히 문제가 있다면 `bun pm ls -g`로 경로를 확인한 뒤 PATH에 추가하세요.
 
-**`bun install -g` 후 `codex: command not found`**
-claude와 동일합니다 — bun 실패 시 npm fallback으로 자동 재시도합니다. 바이너리가 PATH에 반영되지 않았다면 터미널을 재시작하거나 검증 스크립트를 다시 실행하세요.
+**설치 후 `codex: command not found`**
+스크립트는 Node.js 없이 동작하는 스탠드얼론 codex 바이너리를 설치합니다(macOS는 brew cask, Linux는 공식 설치 스크립트, Windows는 winget). PATH에 `~/.local/bin`(Linux)이나 winget links 디렉터리(Windows)가 반영되도록 터미널을 재시작하세요.
 
 **설치 후 `agy: command not found`**
 Antigravity CLI 설치 스크립트는 바이너리를 `~/.local/bin` 또는 `/usr/local/bin`에 저장합니다. `source ~/.bashrc`를 실행하거나 터미널을 재시작하세요.

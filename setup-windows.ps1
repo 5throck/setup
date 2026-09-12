@@ -553,20 +553,10 @@ if ((-not $Force) -and (Installed claude)) {
 if ((-not $Force) -and (Installed codex)) {
     Write-Host "✅  codex (already installed)" -ForegroundColor Green
 } else {
-    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically
-    $codexInstalled = $false
-    if (Installed bun) {
-        $codexInstalled = RunStep "Install Codex CLI" { bun install -g @openai/codex }
-    }
-    if (-not $codexInstalled) {
-        if (-not (Installed bun)) {
-            Write-Host "  ⚠️  bun not available — using npm directly" -ForegroundColor Yellow
-        } else {
-            Write-Host "  ⚠️  bun install failed — falling back to npm" -ForegroundColor Yellow
-        }
-        $codexInstalled = RunStep "Install Codex CLI (npm fallback)" { npm install -g @openai/codex }
-        RefreshEnv
-    }
+    # The npm bin is a Node.js launcher, so install the standalone native
+    # build via winget instead (no Node dependency).
+    Install-WingetPackage "OpenAI.Codex" "Install Codex CLI"
+    RefreshEnv
 }
 if ((-not $Force) -and (Installed agy)) {
     Write-Host "✅  agy (already installed)" -ForegroundColor Green

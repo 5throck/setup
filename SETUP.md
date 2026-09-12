@@ -151,7 +151,7 @@ This prints a verification table of all installed tools, including minimum-versi
 | **python3** | Python runtime | `brew install python3` | `apt install python3` | `winget Python.Python.3.13` |
 | **uv** | Python package manager | `brew install uv` | `astral.sh/uv/install.sh` | `winget astral-sh.uv` |
 | **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
-| **codex** | Codex CLI | `bun install -g @openai/codex` | `bun install -g @openai/codex` | `bun install -g @openai/codex` |
+| **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
 | **Google Chrome** | Browser | `brew install --cask google-chrome` | `.deb` direct download | `winget Google.Chrome` |
 | **Claude Desktop** | Claude desktop app | `brew install --cask claude` | ⚠️ manual | `winget Anthropic.Claude` |
@@ -197,8 +197,8 @@ export PATH="$HOME/.bun/bin:$PATH"
 **`claude: command not found` after `bun install -g`**
 The script automatically retries with npm fallback if bun fails. If issues persist, check `bun pm ls -g` and add the bin dir to PATH.
 
-**`codex: command not found` after `bun install -g`**
-Same as claude — the script automatically retries with npm fallback if bun fails. Restart your terminal or re-run the verification script if the binary isn't on PATH yet.
+**`codex: command not found` after install**
+The scripts install the standalone codex binary (brew cask on macOS, official installer on Linux, winget on Windows) — no Node.js required. Restart your terminal so PATH picks up `~/.local/bin` (Linux) or the winget links dir (Windows).
 
 **`agy: command not found` after install**
 The Antigravity CLI install script places the binary in `~/.local/bin` or `/usr/local/bin`. Run `source ~/.bashrc` or restart your terminal.

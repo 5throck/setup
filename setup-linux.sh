@@ -6,13 +6,14 @@
 # (default: latest). Example: BUN_VERSION=1.1.34 bash setup-linux.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
-# (curl | bash) for bun, NodeSource, and Antigravity CLI. This is the standard
-# official install path for these tools, but it carries supply-chain risk:
-# the downloaded script runs with your user permissions before you can review it.
-# Installers are downloaded to disk first (not piped directly) and their
-# SHA-256 is printed/logged for auditability. For production/enterprise
-# environments, prefer checking the installer's checksum/signature against a
-# known-good value first, or installing from your distro's package manager.
+# (curl | bash) for bun, NodeSource, Codex CLI, and Antigravity CLI. This is
+# the standard official install path for these tools, but it carries
+# supply-chain risk: the downloaded script runs with your user permissions
+# before you can review it. Installers are downloaded to disk first (not
+# piped directly) and their SHA-256 is printed/logged for auditability. For
+# production/enterprise environments, prefer checking the installer's
+# checksum/signature against a known-good value first, or installing from
+# your distro's package manager.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -118,11 +119,11 @@ else
 fi
 
 if should_install codex; then
-  if ! run_step "Install Codex CLI" bun install -g @openai/codex; then
-    run_step "Install Node.js (fallback)" bash -c \
-      'curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
-    run_step "Install Codex CLI (npm)" npm install -g @openai/codex
-  fi
+  # The npm bin is a Node.js launcher, so use the official standalone
+  # installer instead (no Node dependency); it installs to ~/.local/bin
+  # and registers itself in .bashrc.
+  run_step "Install Codex CLI" fetch_and_run https://chatgpt.com/codex/install.sh bash
+  export PATH="$HOME/.local/bin:$PATH"
 else
   printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
 fi

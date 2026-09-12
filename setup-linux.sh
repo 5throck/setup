@@ -117,6 +117,16 @@ else
   printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
 fi
 
+if should_install codex; then
+  if ! run_step "Install Codex CLI" bun install -g @openai/codex; then
+    run_step "Install Node.js (fallback)" bash -c \
+      'curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
+    run_step "Install Codex CLI (npm)" npm install -g @openai/codex
+  fi
+else
+  printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
+fi
+
 if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
@@ -135,6 +145,7 @@ else
 fi
 
 printf "${YELLOW}⚠️ ${NC}  Claude Desktop — check availability at ${CYAN}https://claude.ai/download${NC}\n"
+printf "${YELLOW}⚠️ ${NC}  Codex Desktop — not available on Linux (use Codex CLI)\n"
 printf "${YELLOW}⚠️ ${NC}  Antigravity Desktop — install manually: ${CYAN}https://antigravity.google${NC}\n"
 printf "${YELLOW}⚠️ ${NC}  Mark (Markdown viewer) — install manually: ${CYAN}https://playloom.app/mark${NC}\n"
 

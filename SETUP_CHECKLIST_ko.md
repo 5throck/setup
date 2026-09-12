@@ -13,6 +13,8 @@
 |------|----------|------|
 | **Claude Code CLI** (`claude`) | Claude Pro 또는 Max | [ ] |
 | **Claude 데스크탑 앱** | Claude Pro 이상 | [ ] |
+| **Codex CLI** (`codex`) | ChatGPT Plus, Pro, Team 또는 Enterprise | [ ] |
+| **Codex 데스크탑 앱** | ChatGPT Plus 이상 | [ ] |
 | **Antigravity CLI** (`agy`) | Gemini Advanced | [ ] |
 | **Antigravity 데스크탑 앱** | Gemini Advanced | [ ] |
 
@@ -23,6 +25,7 @@
 ## 2. 계정 준비
 
 - [ ] **Google 계정** — Antigravity / Gemini Advanced 사용에 필요
+- [ ] **ChatGPT 계정** — Codex 로그인(`codex login`)에 필요
 - [ ] **GitHub 계정** — `gh auth login` 및 PR 실습에 필요
   - 계정이 없으면 [github.com](https://github.com)에서 미리 가입하세요
 

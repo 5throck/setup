@@ -13,6 +13,8 @@ These tools require an active subscription to run during the workshop.
 |------|--------------|-------|
 | **Claude Code CLI** (`claude`) | Claude Pro or Max | [ ] |
 | **Claude Desktop App** | Claude Pro or above | [ ] |
+| **Codex CLI** (`codex`) | ChatGPT Plus, Pro, Team, or Enterprise | [ ] |
+| **Codex Desktop App** | ChatGPT Plus or above | [ ] |
 | **Antigravity CLI** (`agy`) | Gemini Advanced | [ ] |
 | **Antigravity Desktop App** | Gemini Advanced | [ ] |
 
@@ -23,6 +25,7 @@ These tools require an active subscription to run during the workshop.
 ## 2. Accounts
 
 - [ ] **Google Account** — required for Antigravity / Gemini Advanced
+- [ ] **ChatGPT Account** — required for Codex sign-in (`codex login`)
 - [ ] **GitHub Account** — required for `gh auth login` and PR exercises
   - Sign up at [github.com](https://github.com) if you don't have one
 

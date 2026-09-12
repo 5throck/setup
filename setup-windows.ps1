@@ -550,6 +550,24 @@ if ((-not $Force) -and (Installed claude)) {
         RefreshEnv
     }
 }
+if ((-not $Force) -and (Installed codex)) {
+    Write-Host "✅  codex (already installed)" -ForegroundColor Green
+} else {
+    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically
+    $codexInstalled = $false
+    if (Installed bun) {
+        $codexInstalled = RunStep "Install Codex CLI" { bun install -g @openai/codex }
+    }
+    if (-not $codexInstalled) {
+        if (-not (Installed bun)) {
+            Write-Host "  ⚠️  bun not available — using npm directly" -ForegroundColor Yellow
+        } else {
+            Write-Host "  ⚠️  bun install failed — falling back to npm" -ForegroundColor Yellow
+        }
+        $codexInstalled = RunStep "Install Codex CLI (npm fallback)" { npm install -g @openai/codex }
+        RefreshEnv
+    }
+}
 if ((-not $Force) -and (Installed agy)) {
     Write-Host "✅  agy (already installed)" -ForegroundColor Green
 } else {
@@ -577,6 +595,22 @@ if ((-not $Force) -and (Test-Path "$env:LOCALAPPDATA\Programs\Claude\Claude.exe"
     Write-Host "✅  Claude Desktop (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Anthropic.Claude" "Install Claude Desktop"
+}
+# Codex Desktop is a Store app (the official `codex app` command just opens this
+# same listing); detect it like the CLI does, via its Start-menu AppID.
+$codexApp = @(Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' })[0]
+if ($codexApp) {
+    Write-Host "✅  Codex Desktop (already installed)" -ForegroundColor Green
+} else {
+    # msstore installs can require Store sign-in — treat failure as a hint,
+    # not a hard error.
+    winget install --id 9PLM9XGG6VKS --source msstore --silent --accept-package-agreements --accept-source-agreements
+    $codexApp = @(Get-StartApps -ErrorAction SilentlyContinue | Where-Object { $_.AppID -like 'OpenAI.Codex_*!App' })[0]
+    if ($codexApp) {
+        Write-Host "✅  Codex Desktop installed" -ForegroundColor Green
+    } else {
+        Write-Host "  ⚠️  Codex Desktop — install manually: https://apps.microsoft.com/detail/9plm9xgg6vks" -ForegroundColor Yellow
+    }
 }
 Write-Host "  ⚠️  Antigravity Desktop — install manually: https://antigravity.google" -ForegroundColor Yellow
 Write-Host "  ⚠️  Mark (Markdown viewer) — install manually: https://playloom.app/mark" -ForegroundColor Yellow

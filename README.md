@@ -2,7 +2,7 @@
 
 [한국어](README_ko.md)
 
-One-shot setup scripts that get a machine ready for the workshop: base tools, runtimes (`bun`, `python3`, `uv`), CLI tools (`gh`, `claude`, `agy`), and desktop apps — for macOS, Linux (Ubuntu/Debian), and Windows.
+One-shot setup scripts that get a machine ready for the workshop: base tools, runtimes (`bun`, `python3`, `uv`), CLI tools (`gh`, `claude`, `codex`, `agy`), and desktop apps — for macOS, Linux (Ubuntu/Debian), and Windows.
 
 ## Quick start
 
@@ -38,7 +38,7 @@ Full instructions, optional flags (`--wezterm`, `--docker`, `-WSL2`, `--force`),
 | `setup-lib.sh` | Shared bash helpers (sourced by the mac/linux scripts): progress UI, preflight checks, logging, `--force`, cleanup |
 | `setup-windows.ps1` | Windows install script (PowerShell) |
 | `setup-common.ts` | Cross-platform verification script (run after the OS script) |
-| `check-docs-sync.sh` | CI guard — fails if `SETUP.md` drifts from the scripts' actual flags |
+| `check-docs-sync.sh` | CI guard — fails if `SETUP.md` / `SETUP_ko.md` drift from the scripts' actual flags |
 | `.github/workflows/test-setup.yml` | CI: ShellCheck, a real dry-run of `setup-linux.sh` in a container, and a PowerShell syntax check |
 
 Korean translations: [`SETUP_ko.md`](SETUP_ko.md), [`SETUP_CHECKLIST_ko.md`](SETUP_CHECKLIST_ko.md).

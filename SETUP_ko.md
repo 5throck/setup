@@ -65,6 +65,8 @@ bash setup-mac.sh --wezterm
 bash setup-mac.sh --docker
 # 둘 다:
 bash setup-mac.sh --wezterm --docker
+# 이미 설치된 도구도 모두 재설치
+bash setup-mac.sh --force
 ```
 
 ### Linux (Ubuntu / Debian)
@@ -77,7 +79,11 @@ bash setup-linux.sh --wezterm
 bash setup-linux.sh --docker
 # 둘 다:
 bash setup-linux.sh --wezterm --docker
+# 이미 설치된 도구도 모두 재설치
+bash setup-linux.sh --force
 ```
+
+> macOS/Linux는 사전 점검(인터넷, 디스크 공간, OS 정보), `~/workshop-setup-logs/` 아래 실행 로그, `--force` 처리를 `setup-lib.sh`를 통해 공유합니다.
 
 ### Windows
 
@@ -104,12 +110,28 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2 -WezTerm -Doc
 
 > **실행 후**: 터미널을 닫고 다시 열어 PATH 변경 사항을 반영하세요.
 
+### 버전 고정 (모든 플랫폼)
+
+기본적으로 스크립트는 `bun`, `uv`, `python3`의 최신 릴리스를 설치합니다. 재현 가능한 워크숍 환경을 원한다면, 실행 전에 환경 변수로 버전을 고정하세요:
+
+```bash
+# macOS / Linux
+BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
+```
+
+```powershell
+# Windows
+$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+
 ---
 
 ## Step 3 — 설치 확인
 
 ```bash
 bun setup-common.ts
+# CI/스크립팅용 머신 리더블 출력:
+bun setup-common.ts --json
 ```
 
 설치된 도구의 검증 표를 출력합니다. `bun`/`uv` 최소 버전 확인과 `claude`/`codex`/`gh` 로그인 상태도 함께 점검합니다. **모든 항목이 ✅로 표시되면 준비 완료입니다.**
@@ -193,7 +215,8 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 스크립트가 경고를 표시하지만 계속 진행됩니다. winget 등 일부 설치에서 오류가 발생할 수 있으므로 권장: PowerShell을 관리자 권한으로 재실행하세요.
 
 **설치 로그 확인**
-Windows 스크립트 실행 로그는 `%USERPROFILE%\workshop-setup-logs\`에 자동 저장됩니다.
+- Windows: `%USERPROFILE%\workshop-setup-logs\`
+- macOS / Linux: `~/workshop-setup-logs/`
 
 ---
 

@@ -31,8 +31,21 @@ check_flag SETUP.md setup-windows.ps1 "-Docker"
 check_flag SETUP.md setup-windows.ps1 "-Force"
 check_flag SETUP.md setup-common.ts   "--json"
 
+# Korean translation — same flag set, so KO docs can't silently drift
+check_flag SETUP_ko.md setup-linux.sh "--wezterm"
+check_flag SETUP_ko.md setup-linux.sh "--docker"
+check_flag SETUP_ko.md setup-linux.sh "--force"
+check_flag SETUP_ko.md setup-mac.sh   "--wezterm"
+check_flag SETUP_ko.md setup-mac.sh   "--docker"
+check_flag SETUP_ko.md setup-mac.sh   "--force"
+check_flag SETUP_ko.md setup-windows.ps1 "-WSL2"
+check_flag SETUP_ko.md setup-windows.ps1 "-WezTerm"
+check_flag SETUP_ko.md setup-windows.ps1 "-Docker"
+check_flag SETUP_ko.md setup-windows.ps1 "-Force"
+check_flag SETUP_ko.md setup-common.ts   "--json"
+
 if [[ $FAIL -eq 0 ]]; then
-  echo "✅ SETUP.md flags are in sync with the scripts"
+  echo "✅ SETUP.md / SETUP_ko.md flags are in sync with the scripts"
 else
   exit 1
 fi

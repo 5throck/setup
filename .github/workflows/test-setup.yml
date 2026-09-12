@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Check SETUP.md flags are in sync with scripts
+      - name: Check SETUP.md / SETUP_ko.md flags are in sync with scripts
         run: bash check-docs-sync.sh
 
   shellcheck:

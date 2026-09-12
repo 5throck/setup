@@ -135,6 +135,19 @@ if (-not $allowsScripts) {
     }
 }
 
+# ── Helpers used by the guards below ─────────────────────────────────────────
+# Script statements execute top-to-bottom, and the PowerShell 7 guard below
+# runs under Windows PowerShell 5.1 — these must be defined before that guard
+# calls them, or the guard itself dies with "not recognized".
+function Installed($cmd) {
+    return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
+}
+
+function RefreshEnv {
+    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
+                [System.Environment]::GetEnvironmentVariable("PATH", "User")
+}
+
 # ── PowerShell 7 requirement ─────────────────────────────────────────────────
 # The script's encoding handling, Start-Job usage, and winget output parsing
 # are written for PS 7+. On Windows PowerShell 5.1 they misbehave (garbled
@@ -266,17 +279,8 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
     return $ok
 }
 
-function Installed($cmd) {
-    return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
-}
-
 function ShouldInstall($cmd) {
     return (-not (Installed $cmd)) -or $Force
-}
-
-function RefreshEnv {
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
-                [System.Environment]::GetEnvironmentVariable("PATH", "User")
 }
 
 function Install-WingetPackage($Id, $Label) {

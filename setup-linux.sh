@@ -92,7 +92,7 @@ if should_install python3; then
   [[ "$PYTHON_VERSION" != "latest" ]] && PY_PKG="python${PYTHON_VERSION}"
   run_step "Install $PY_PKG" sudo apt-get install -y -q "$PY_PKG" python3-pip python3-venv
 else
-  printf "${GREEN}✅${NC}  python3 ${DIM}$(python3 --version) (already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(python3 --version) (already installed)${NC}\n"
 fi
 
 # ── 5. Runtime: uv ───────────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ if should_install uv; then
   run_step "Install uv ($UV_VERSION)" fetch_and_run "$UV_URL" sh
   export PATH="$HOME/.local/bin:$PATH"
 else
-  printf "${GREEN}✅${NC}  uv ${DIM}$(uv --version) (already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(uv --version) (already installed)${NC}\n"
 fi
 
 # ── 6. CLI tools ──────────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ if [[ " $* " == *" --docker "* ]]; then
     run_step "Add user to docker group" bash -c "sudo usermod -aG docker ${USER:-$(whoami)}"
     printf "${YELLOW}⚠️ ${NC}  Log out and back in for docker group to take effect.\n"
   else
-    printf "${GREEN}✅${NC}  Docker ${DIM}$(docker --version) (already installed)${NC}\n"
+    printf "${GREEN}✅${NC}  ${DIM}$(docker --version) (already installed)${NC}\n"
   fi
 fi
 

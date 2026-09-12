@@ -263,8 +263,11 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
     $child  = $job.ChildJobs[0]
     $ok     = ($child.JobStateInfo.State -eq 'Completed') -and ($child.Error.Count -eq 0)
 
+    # Trailing spaces overwrite spinner residue: ✅/❌ render one display cell
+    # wider than the braille spinner, so without them the spinner line's last
+    # character stays visible ("Update bunn").
     if ($ok) {
-        Write-Host ("`r✅  $label") -ForegroundColor Green
+        Write-Host ("`r✅  $label   ") -ForegroundColor Green
     } else {
         # Show last 5 diagnostic lines (errors first, then captured output)
         $diag = @($child.Error | ForEach-Object { $_.ToString() })
@@ -272,7 +275,7 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
         foreach ($line in ($diag | Select-Object -Last 5)) {
             Write-Host "     $line" -ForegroundColor DarkGray
         }
-        Write-Host ("`r❌  $label") -ForegroundColor Red
+        Write-Host ("`r❌  $label   ") -ForegroundColor Red
         $Errors.Add($label)
     }
     Remove-Job $job -Force -ErrorAction SilentlyContinue
@@ -288,7 +291,7 @@ function Install-WingetPackage($Id, $Label) {
     # ("use winget upgrade"), and `winget upgrade` exits nonzero when there is
     # nothing to upgrade — so try upgrade, then install, and treat "already
     # present" as success.
-    RunStep $Label {
+    $null = RunStep $Label {
         param($pkgId)
         winget upgrade --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
         if ($LASTEXITCODE -ne 0) {
@@ -411,13 +414,13 @@ if ($WezTerm) {
 # ── 4. Git (+ Git Bash) + gh ──────────────────────────────────────────────────
 Section 4 $TOTAL "Git + Git Bash + gh"
 if ((-not $Force) -and (Installed git)) {
-    Write-Host "✅  git $(git --version) (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(git --version) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Git.Git" "Install Git for Windows"
     RefreshEnv
 }
 if ((-not $Force) -and (Installed gh)) {
-    Write-Host "✅  gh $(gh --version | Select-Object -First 1) (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(gh --version | Select-Object -First 1) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "GitHub.cli" "Install GitHub CLI"
     RefreshEnv
@@ -427,7 +430,7 @@ if ($WSL2) {
     if ($wslFeature -and $wslFeature.State -eq 'Enabled' -and -not $Force) {
         Write-Host "✅  WSL2 (already enabled)" -ForegroundColor Green
     } else {
-        RunStep "Enable WSL2" { wsl --install }
+        $null = RunStep "Enable WSL2" { wsl --install }
         Write-Host "  ⚠️  Restart Windows to finish WSL2 setup." -ForegroundColor Yellow
     }
 }
@@ -501,7 +504,7 @@ Section 6 $TOTAL "Runtime: python3"
 if ((-not $Force) -and (Installed python)) {
     Write-Host "✅  $(python --version) (already installed)" -ForegroundColor Green
 } else {
-    RunStep "Install Python 3" {
+    $null = RunStep "Install Python 3" {
         winget install Python.Python.3.13 --silent --accept-source-agreements
     }
     RefreshEnv
@@ -510,10 +513,10 @@ if ((-not $Force) -and (Installed python)) {
 # ── 7. Runtime: uv ───────────────────────────────────────────────────────────
 Section 7 $TOTAL "Runtime: uv"
 if ((-not $Force) -and (Installed uv)) {
-    Write-Host "✅  uv $(uv --version) (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(uv --version) (already installed)" -ForegroundColor Green
 } else {
     if ($UvVersion -ne "latest") {
-        RunStep "Install uv ($UvVersion)" {
+        $null = RunStep "Install uv ($UvVersion)" {
             param($ver)
             winget install --id astral-sh.uv --version $ver --silent --accept-source-agreements
         } @($UvVersion)
@@ -610,7 +613,7 @@ Write-Host "  ⚠️  Antigravity Desktop — install manually: https://antigrav
 Write-Host "  ⚠️  Mark (Markdown viewer) — install manually: https://playloom.app/mark" -ForegroundColor Yellow
 if ($Docker) {
     if ((-not $Force) -and (Installed docker)) {
-        Write-Host "✅  Docker $(docker --version) (already installed)" -ForegroundColor Green
+        Write-Host "✅  $(docker --version) (already installed)" -ForegroundColor Green
     } else {
         Install-WingetPackage "Docker.DockerDesktop" "Install Docker Desktop"
         Write-Host "  ⚠️  Launch Docker Desktop once to complete setup." -ForegroundColor Yellow

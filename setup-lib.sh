@@ -51,10 +51,13 @@ run_step() {
   done
 
   wait "$pid"; local rc=$?
+  # Trailing spaces overwrite spinner residue: ✅/❌ render one display cell
+  # wider than the braille spinner, so without them the spinner line's last
+  # character stays visible ("Update bunn").
   if [[ $rc -eq 0 ]]; then
-    printf "\r${GREEN}✅${NC}  %s\n" "$label"
+    printf "\r${GREEN}✅${NC}  %s  \n" "$label"
   else
-    printf "\r${RED}❌${NC}  %s\n" "$label"
+    printf "\r${RED}❌${NC}  %s  \n" "$label"
     # tail: errors usually appear at the end of output (matches PS RunStep)
     sed 's/^/     /' "$tmplog" | tail -5 || true
     ERRORS+=("$label")
@@ -102,11 +105,11 @@ update_bun() {
   bun upgrade >"$tmplog" 2>&1
   local rc=$?
   if [ $rc -eq 0 ] || installed bun; then
-    printf "\r${GREEN}✅${NC}  Update bun\n"
+    printf "\r${GREEN}✅${NC}  Update bun  \n"
     [ $rc -ne 0 ] && printf "     %s\n" "$(tail -n 1 "$tmplog")"
     rc=0
   else
-    printf "\r${RED}❌${NC}  Update bun\n"
+    printf "\r${RED}❌${NC}  Update bun  \n"
     sed 's/^/     /' "$tmplog" | tail -5
     ERRORS+=("Update bun")
   fi

@@ -84,7 +84,7 @@ if should_install python3; then
   [[ "$PYTHON_VERSION" != "latest" ]] && PY_FORMULA="python@${PYTHON_VERSION}"
   run_step "Install $PY_FORMULA" brew install "$PY_FORMULA"
 else
-  printf "${GREEN}✅${NC}  python3 ${DIM}$(python3 --version) (already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(python3 --version) (already installed)${NC}\n"
 fi
 
 # ── 5. Runtime: uv ───────────────────────────────────────────────────────────
@@ -95,7 +95,7 @@ if should_install uv; then
     printf "${YELLOW}⚠️ ${NC}  Homebrew installs the latest uv; use 'uv self update --version %s' to pin.\n" "$UV_VERSION"
   fi
 else
-  printf "${GREEN}✅${NC}  uv ${DIM}$(uv --version) (already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(uv --version) (already installed)${NC}\n"
 fi
 
 # ── 6. CLI tools ─────────────────────────────────────────────────────────────
@@ -214,7 +214,7 @@ if [[ " $* " == *" --docker "* ]]; then
     run_step "Install Docker Desktop" brew install --cask docker
     printf "${YELLOW}⚠️ ${NC}  Launch Docker Desktop once to complete setup.\n"
   else
-    printf "${GREEN}✅${NC}  Docker ${DIM}$(docker --version) (already installed)${NC}\n"
+    printf "${GREEN}✅${NC}  ${DIM}$(docker --version) (already installed)${NC}\n"
   fi
 fi
 

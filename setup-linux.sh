@@ -6,13 +6,14 @@
 # (default: latest). Example: BUN_VERSION=1.1.34 bash setup-linux.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
-# (curl | bash) for bun, NodeSource, and Antigravity CLI. This is the standard
-# official install path for these tools, but it carries supply-chain risk:
-# the downloaded script runs with your user permissions before you can review it.
-# Installers are downloaded to disk first (not piped directly) and their
-# SHA-256 is printed/logged for auditability. For production/enterprise
-# environments, prefer checking the installer's checksum/signature against a
-# known-good value first, or installing from your distro's package manager.
+# (curl | bash) for bun, NodeSource, Codex CLI, and Antigravity CLI. This is
+# the standard official install path for these tools, but it carries
+# supply-chain risk: the downloaded script runs with your user permissions
+# before you can review it. Installers are downloaded to disk first (not
+# piped directly) and their SHA-256 is printed/logged for auditability. For
+# production/enterprise environments, prefer checking the installer's
+# checksum/signature against a known-good value first, or installing from
+# your distro's package manager.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -117,6 +118,16 @@ else
   printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
 fi
 
+if should_install codex; then
+  # The npm bin is a Node.js launcher, so use the official standalone
+  # installer instead (no Node dependency); it installs to ~/.local/bin
+  # and registers itself in .bashrc.
+  run_step "Install Codex CLI" fetch_and_run https://chatgpt.com/codex/install.sh bash
+  export PATH="$HOME/.local/bin:$PATH"
+else
+  printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
+fi
+
 if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
@@ -135,6 +146,7 @@ else
 fi
 
 printf "${YELLOW}⚠️ ${NC}  Claude Desktop — check availability at ${CYAN}https://claude.ai/download${NC}\n"
+printf "${YELLOW}⚠️ ${NC}  Codex Desktop — not available on Linux (use Codex CLI)\n"
 printf "${YELLOW}⚠️ ${NC}  Antigravity Desktop — install manually: ${CYAN}https://antigravity.google${NC}\n"
 printf "${YELLOW}⚠️ ${NC}  Mark (Markdown viewer) — install manually: ${CYAN}https://playloom.app/mark${NC}\n"
 

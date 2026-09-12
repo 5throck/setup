@@ -24,11 +24,13 @@
 4. CLI 도구
    └─ gh  (GitHub CLI)
    └─ claude  (Claude Code CLI)
+   └─ codex  (Codex CLI)
    └─ agy  (Antigravity CLI)
 
 5. 데스크탑 앱
    └─ Google Chrome
    └─ Claude 데스크탑 앱
+   └─ Codex 데스크탑 앱
    └─ Antigravity 데스크탑 앱
    └─ Mark  (Markdown 뷰어)
 
@@ -43,7 +45,7 @@
 스크립트 실행 전 [`SETUP_CHECKLIST_ko.md`](SETUP_CHECKLIST_ko.md)를 먼저 읽고 완료하세요.
 
 주요 확인 사항:
-- **Claude Pro/Max** 및 **Gemini Advanced** 구독 완료 (API Key가 아닌 구독 플랜)
+- **Claude Pro/Max**, **ChatGPT Plus/Pro**(Codex용), **Gemini Advanced** 구독 완료 (API Key가 아닌 구독 플랜)
 - **GitHub 계정** 생성 및 `gh auth login` 준비
 - 여유 디스크 공간 **5 GB 이상**, **관리자/sudo 권한** 보유 확인
 
@@ -110,7 +112,7 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2 -WezTerm -Doc
 bun setup-common.ts
 ```
 
-설치된 도구의 검증 표를 출력합니다. **모든 항목이 ✅로 표시되면 준비 완료입니다.**
+설치된 도구의 검증 표를 출력합니다. `bun`/`uv` 최소 버전 확인과 `claude`/`codex`/`gh` 로그인 상태도 함께 점검합니다. **모든 항목이 ✅로 표시되면 준비 완료입니다.**
 
 ---
 
@@ -124,9 +126,11 @@ bun setup-common.ts
 | **python3** | Python 런타임 | `brew install python3` | `apt install python3` | `winget Python.Python.3.13` |
 | **uv** | Python 패키지 매니저 | `brew install uv` | `astral.sh/uv/install.sh` | `winget astral-sh.uv` |
 | **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
+| **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
 | **Google Chrome** | 브라우저 | `brew install --cask google-chrome` | `.deb` 직접 다운로드 | `winget Google.Chrome` |
 | **Claude Desktop** | Claude 데스크탑 앱 | `brew install --cask claude` | ⚠️ 수동 설치 | `winget Anthropic.Claude` |
+| **Codex Desktop** | Codex 데스크탑 앱 | DMG (자동, 서명 검증) | ⚠️ 미지원 (CLI 사용) | Microsoft Store (`winget` msstore) |
 | **Antigravity Desktop** | Antigravity 데스크탑 앱 | ⚠️ 수동 설치 | ⚠️ 수동 설치 | ⚠️ 수동 설치 |
 | **Mark** | Markdown 뷰어 | ⚠️ 수동 설치 | ⚠️ 수동 설치 | ⚠️ 수동 설치 |
 | **PowerShell 7+** | 셸 | — | — | `winget Microsoft.PowerShell` |
@@ -167,6 +171,9 @@ export PATH="$HOME/.bun/bin:$PATH"
 
 **`bun install -g` 후 `claude: command not found`**
 스크립트가 bun 실패 시 npm fallback으로 자동 재시도합니다. 여전히 문제가 있다면 `bun pm ls -g`로 경로를 확인한 뒤 PATH에 추가하세요.
+
+**설치 후 `codex: command not found`**
+스크립트는 Node.js 없이 동작하는 스탠드얼론 codex 바이너리를 설치합니다(macOS는 brew cask, Linux는 공식 설치 스크립트, Windows는 winget). PATH에 `~/.local/bin`(Linux)이나 winget links 디렉터리(Windows)가 반영되도록 터미널을 재시작하세요.
 
 **설치 후 `agy: command not found`**
 Antigravity CLI 설치 스크립트는 바이너리를 `~/.local/bin` 또는 `/usr/local/bin`에 저장합니다. `source ~/.bashrc`를 실행하거나 터미널을 재시작하세요.

@@ -79,6 +79,7 @@ const tools: Tool[] = [
   { cmd: "git",    label: "git",              required: true  },
   { cmd: "gh",     label: "gh (GitHub CLI)",   required: true  },
   { cmd: "claude", label: "claude",           required: true  },
+  { cmd: "codex",  label: "codex",            required: true  },
   { cmd: "agy",    label: "agy (Antigravity)",required: true },
 ];
 
@@ -133,6 +134,20 @@ try {
 } catch {
   rows.push([`${Y}⚠️ ${N}`, "claude auth", `${Y}not logged in — run: claude login${N}`]);
   results.push({ tool: "claude-auth", label: "claude auth", status: "optional", version: null });
+}
+
+// codex auth
+try {
+  const r = await $`codex login status`.quiet();
+  // `codex login status` prints plain text (e.g. "Logged in using ChatGPT");
+  // surface the first line instead of the raw multi-line output.
+  const out = r.stdout.toString().trim();
+  const authInfo = out ? out.split("\n")[0] : "logged in";
+  rows.push([`${G}✅${N}`, "codex auth", authInfo]);
+  results.push({ tool: "codex-auth", label: "codex auth", status: "ok", version: null });
+} catch {
+  rows.push([`${Y}⚠️ ${N}`, "codex auth", `${Y}not logged in — run: codex login${N}`]);
+  results.push({ tool: "codex-auth", label: "codex auth", status: "optional", version: null });
 }
 
 if (JSON_OUTPUT) {

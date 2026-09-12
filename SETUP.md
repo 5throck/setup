@@ -24,11 +24,13 @@ Complete this setup **before** the workshop. The goal: when the session starts, 
 4. CLI Tools
    └─ gh  (GitHub CLI)
    └─ claude  (Claude Code CLI)
+   └─ codex  (Codex CLI)
    └─ agy  (Antigravity CLI)
 
 5. Desktop Apps
    └─ Google Chrome
    └─ Claude Desktop App
+   └─ Codex Desktop App
    └─ Antigravity Desktop App
    └─ Mark  (Markdown viewer)
 
@@ -43,7 +45,7 @@ Complete this setup **before** the workshop. The goal: when the session starts, 
 Before running any script, read and complete [`SETUP_CHECKLIST.md`](SETUP_CHECKLIST.md).
 
 Key items:
-- Subscribe to **Claude Pro/Max** and **Gemini Advanced** (subscriptions, not API keys)
+- Subscribe to **Claude Pro/Max**, **ChatGPT Plus/Pro** (for Codex), and **Gemini Advanced** (subscriptions, not API keys)
 - Create a **GitHub account** and be ready to run `gh auth login`
 - Ensure you have **5 GB** free disk space and **admin/sudo** rights
 
@@ -135,7 +137,7 @@ bun setup-common.ts
 bun setup-common.ts --json
 ```
 
-This prints a verification table of all installed tools, including minimum-version checks for `bun`/`uv` and `claude`/`gh` login status. **All rows must show ✅ before the workshop.**
+This prints a verification table of all installed tools, including minimum-version checks for `bun`/`uv` and `claude`/`codex`/`gh` login status. **All rows must show ✅ before the workshop.**
 
 ---
 
@@ -149,9 +151,11 @@ This prints a verification table of all installed tools, including minimum-versi
 | **python3** | Python runtime | `brew install python3` | `apt install python3` | `winget Python.Python.3.13` |
 | **uv** | Python package manager | `brew install uv` | `astral.sh/uv/install.sh` | `winget astral-sh.uv` |
 | **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
+| **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
 | **Google Chrome** | Browser | `brew install --cask google-chrome` | `.deb` direct download | `winget Google.Chrome` |
 | **Claude Desktop** | Claude desktop app | `brew install --cask claude` | ⚠️ manual | `winget Anthropic.Claude` |
+| **Codex Desktop** | Codex desktop app | DMG (auto, signature-verified) | ⚠️ unavailable (CLI only) | Microsoft Store (`winget` msstore) |
 | **Antigravity Desktop** | Antigravity desktop app | ⚠️ manual | ⚠️ manual | ⚠️ manual |
 | **Mark** | Markdown viewer | ⚠️ manual | ⚠️ manual | ⚠️ manual |
 | **PowerShell 7+** | Shell | — | — | `winget Microsoft.PowerShell` |
@@ -192,6 +196,9 @@ export PATH="$HOME/.bun/bin:$PATH"
 
 **`claude: command not found` after `bun install -g`**
 The script automatically retries with npm fallback if bun fails. If issues persist, check `bun pm ls -g` and add the bin dir to PATH.
+
+**`codex: command not found` after install**
+The scripts install the standalone codex binary (brew cask on macOS, official installer on Linux, winget on Windows) — no Node.js required. Restart your terminal so PATH picks up `~/.local/bin` (Linux) or the winget links dir (Windows).
 
 **`agy: command not found` after install**
 The Antigravity CLI install script places the binary in `~/.local/bin` or `/usr/local/bin`. Run `source ~/.bashrc` or restart your terminal.

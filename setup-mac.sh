@@ -107,6 +107,14 @@ else
   printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
 fi
 
+if should_install codex; then
+  # The npm bin is a Node.js launcher, so use the brew-cask standalone binary
+  # (no Node dependency); brew's bin dir is already on PATH via shellenv.
+  run_step "Install Codex CLI" brew install --cask codex
+else
+  printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
+fi
+
 if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
@@ -125,6 +133,60 @@ if [[ -d "/Applications/Claude.app" ]]; then
   printf "${GREEN}✅${NC}  Claude Desktop ${DIM}(already installed)${NC}\n"
 else
   run_step "Install Claude Desktop App" brew install --cask claude
+fi
+
+# No brew cask exists for the Codex Desktop app, so install it the way the
+# official `codex app` command does: download the DMG, verify the OpenAI
+# signature, and copy the bundle — without launching the app afterwards.
+# The bundle ships as Codex.app or ChatGPT.app, both with the com.openai.codex
+# bundle id, so detection checks the id (a stock ChatGPT.app is com.openai.chat).
+codex_desktop_installed() {
+  local app
+  for app in "/Applications/Codex.app" "/Applications/ChatGPT.app" \
+             "$HOME/Applications/Codex.app" "$HOME/Applications/ChatGPT.app"; do
+    [[ -d "$app" ]] || continue
+    [[ "$(plutil -extract CFBundleIdentifier raw "$app/Contents/Info.plist" 2>/dev/null)" \
+      == "com.openai.codex" ]] && return 0
+  done
+  return 1
+}
+
+install_codex_desktop() {
+  local dmg_url tmp_dir mnt app_src
+  case "$(uname -m)" in
+    arm64) dmg_url="https://persistent.oaistatic.com/codex-app-prod/Codex.dmg" ;;
+    *)     dmg_url="https://persistent.oaistatic.com/codex-app-prod/Codex-latest-x64.dmg" ;;
+  esac
+  tmp_dir=$(mktemp -d)
+  if ! curl -fsSL --retry 3 --retry-delay 1 "$dmg_url" -o "$tmp_dir/Codex.dmg"; then
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+  mnt=$(hdiutil attach -nobrowse -readonly "$tmp_dir/Codex.dmg" | awk -F'\t' 'END {print $NF}')
+  app_src=$(find "$mnt" -maxdepth 1 -name '*.app' 2>/dev/null | head -n 1)
+  # Only install a bundle signed by OpenAI (team 2DC432GLL2) as com.openai.codex
+  if [[ -z "$app_src" ]] || ! codesign --verify --deep --strict \
+      --requirement 'identifier "com.openai.codex" and certificate leaf[subject.OU] = "2DC432GLL2"' \
+      "$app_src"; then
+    [[ -n "$mnt" ]] && hdiutil detach "$mnt" -force >/dev/null 2>&1
+    rm -rf "$tmp_dir"
+    echo "refusing to install an unverified Codex Desktop app"
+    return 1
+  fi
+  local rc=0
+  ditto "$app_src" "/Applications/${app_src##*/}" \
+    || ditto "$app_src" "$HOME/Applications/${app_src##*/}" \
+    || rc=1
+  hdiutil detach "$mnt" >/dev/null 2>&1
+  rm -rf "$tmp_dir"
+  return $rc
+}
+
+if codex_desktop_installed; then
+  printf "${GREEN}✅${NC}  Codex Desktop ${DIM}(already installed)${NC}\n"
+else
+  run_step "Install Codex Desktop App" install_codex_desktop \
+    || printf "${YELLOW}⚠️ ${NC}  Codex Desktop — install manually by running: ${CYAN}codex app${NC}\n"
 fi
 
 if [[ -d "/Applications/Antigravity.app" ]]; then

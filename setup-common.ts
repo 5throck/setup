@@ -72,9 +72,11 @@ const errors: string[] = [];
 if (!JSON_OUTPUT) section(TOTAL, TOTAL, "Verification");
 
 type Tool = { cmd: string; vArgs?: string[]; label: string; required: boolean };
+const pythonCmd = process.platform === "win32" ? "python" : "python3";
+
 const tools: Tool[] = [
   { cmd: "bun",    label: "bun",              required: true  },
-  { cmd: "python3",label: "python3",          required: false },
+  { cmd: pythonCmd,label: "Python 3",         required: true  },
   { cmd: "uv",     label: "uv",               required: true  },
   { cmd: "git",    label: "git",              required: true  },
   { cmd: "gh",     label: "gh (GitHub CLI)",   required: true  },

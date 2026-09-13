@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-워크숍 실습을 위한 원샷 환경 설정 스크립트입니다. 기본 도구, 런타임(`bun`, `python3`, `uv`), CLI 도구(`gh`, `claude`, `codex`, `agy`), 데스크톱 앱까지 macOS / Linux(Ubuntu·Debian) / Windows에서 자동으로 설치합니다.
+워크숍 실습을 위한 원샷 환경 설정 스크립트입니다. 기본 도구, 런타임(`bun`, `python3`, `uv`), CLI 도구(`gh`, `claude`, `codex`, `agy`), 데스크톱 앱을 macOS / Linux(Ubuntu·Debian) / Windows에서 자동 설치하거나, 자동화가 어려운 앱은 수동 설치 안내를 제공합니다.
 
 ## 빠른 시작
 
@@ -45,10 +45,10 @@ bun setup-common.ts
 
 ## 재현 가능한 설치 (버전 고정)
 
-항상 최신 버전을 설치하는 대신 `bun`/`uv`/`python3` 버전을 고정할 수 있습니다.
+항상 최신 버전을 설치하는 대신 모든 플랫폼에서 `bun`/`uv`, macOS/Linux에서 `python3` 버전을 고정할 수 있습니다.
 
 ```bash
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
+BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
@@ -57,7 +57,7 @@ $env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPo
 
 ## 보안 참고사항
 
-이 스크립트들은 `bun`, `uv`, Antigravity CLI를 각 서비스의 공식 원격 설치 스크립트로 설치합니다. 다운로드한 내용을 바로 쉘에 흘려보내는 `curl | bash` / `irm | iex` 방식 대신, 설치 스크립트를 먼저 디스크에 내려받아 SHA-256 해시를 출력·로그로 남긴 뒤에 실행합니다 — 실행 전 내용을 직접 검토하지는 않지만 최소한 실행 이력을 추적할 수 있습니다. 자세한 내용은 각 스크립트 상단의 보안 주석을 참고하세요.
+일부 도구는 플랫폼에 따라 원격 설치 스크립트를 사용합니다. 예: `bun`, Linux `uv`, Linux Codex CLI, Antigravity CLI. 다운로드한 내용을 바로 쉘에 흘려보내는 `curl | bash` / `irm | iex` 방식 대신, 설치 스크립트를 먼저 디스크에 내려받아 SHA-256 해시를 출력·로그로 남긴 뒤에 실행합니다 — 실행 전 내용을 직접 검토하지는 않지만 최소한 실행 이력을 추적할 수 있습니다. 자세한 내용은 각 스크립트 상단의 보안 주석을 참고하세요.
 
 ## CI
 

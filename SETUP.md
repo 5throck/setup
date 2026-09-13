@@ -115,11 +115,11 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ### Pinning tool versions (all platforms)
 
-By default the scripts install the latest release of `bun`, `uv`, and `python3`. For reproducible workshop environments, pin versions via environment variables before running:
+By default the scripts install the latest release of `bun` and `uv`; macOS/Linux also support pinning `python3` via `PYTHON_VERSION`. Windows installs Python via `winget Python.Python.3.13`. For reproducible workshop environments, pin supported versions via environment variables before running:
 
 ```bash
 # macOS / Linux
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
+BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
@@ -137,7 +137,7 @@ bun setup-common.ts
 bun setup-common.ts --json
 ```
 
-This prints a verification table of all installed tools, including minimum-version checks for `bun`/`uv` and `claude`/`codex`/`gh` login status. **All rows must show ✅ before the workshop.**
+This prints a verification table of all installed tools, including minimum-version checks for `bun`/`uv`, a platform-aware Python check (`python3` on macOS/Linux, `python` on Windows), and `claude`/`codex`/`gh` login status. **All required rows must show ✅ before the workshop.**
 
 ---
 

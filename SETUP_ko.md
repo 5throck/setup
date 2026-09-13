@@ -112,11 +112,11 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2 -WezTerm -Doc
 
 ### 버전 고정 (모든 플랫폼)
 
-기본적으로 스크립트는 `bun`, `uv`, `python3`의 최신 릴리스를 설치합니다. 재현 가능한 워크숍 환경을 원한다면, 실행 전에 환경 변수로 버전을 고정하세요:
+기본적으로 스크립트는 `bun`과 `uv`의 최신 릴리스를 설치하며, macOS/Linux에서는 `PYTHON_VERSION`으로 `python3` 버전도 고정할 수 있습니다. Windows는 `winget Python.Python.3.13`으로 Python을 설치합니다. 재현 가능한 워크숍 환경을 원한다면, 실행 전에 지원되는 버전을 환경 변수로 고정하세요:
 
 ```bash
 # macOS / Linux
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
+BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
@@ -134,7 +134,7 @@ bun setup-common.ts
 bun setup-common.ts --json
 ```
 
-설치된 도구의 검증 표를 출력합니다. `bun`/`uv` 최소 버전 확인과 `claude`/`codex`/`gh` 로그인 상태도 함께 점검합니다. **모든 항목이 ✅로 표시되면 준비 완료입니다.**
+설치된 도구의 검증 표를 출력합니다. `bun`/`uv` 최소 버전 확인, 플랫폼별 Python 확인(macOS/Linux는 `python3`, Windows는 `python`), `claude`/`codex`/`gh` 로그인 상태도 함께 점검합니다. **필수 항목이 모두 ✅로 표시되면 준비 완료입니다.**
 
 ---
 

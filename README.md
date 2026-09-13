@@ -2,7 +2,7 @@
 
 [한국어](README_ko.md)
 
-One-shot setup scripts that get a machine ready for the workshop: base tools, runtimes (`bun`, `python3`, `uv`), CLI tools (`gh`, `claude`, `codex`, `agy`), and desktop apps — for macOS, Linux (Ubuntu/Debian), and Windows.
+One-shot setup scripts that get a machine ready for the workshop: base tools, runtimes (`bun`, `python3`, `uv`), CLI tools (`gh`, `claude`, `codex`, `agy`), and desktop apps — installing what can be automated and clearly prompting for manual-only apps on macOS, Linux (Ubuntu/Debian), and Windows.
 
 ## Quick start
 
@@ -45,10 +45,10 @@ Korean translations: [`SETUP_ko.md`](SETUP_ko.md), [`SETUP_CHECKLIST_ko.md`](SET
 
 ## Reproducible installs
 
-Pin `bun`/`uv`/`python3` versions instead of always installing latest:
+Pin `bun`/`uv` versions on all platforms, and `python3` on macOS/Linux, instead of always installing latest:
 
 ```bash
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 bash setup-mac.sh
+BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
@@ -57,7 +57,7 @@ $env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPo
 
 ## Security note
 
-The scripts install `bun`, `uv`, and the Antigravity CLI via their official remote installers. Rather than piping the download straight into a shell (`curl | bash` / `irm | iex`), each installer is downloaded to disk first, its SHA-256 is printed and logged, and only then executed — so the run is auditable even though the script itself isn't hand-reviewed before execution. See the security note at the top of each script for specifics.
+Some tools are installed via remote installer scripts, depending on platform — for example `bun`, Linux `uv`, Linux Codex CLI, and the Antigravity CLI. Rather than piping the download straight into a shell (`curl | bash` / `irm | iex`), each installer is downloaded to disk first, its SHA-256 is printed and logged, and only then executed — so the run is auditable even though the script itself isn't hand-reviewed before execution. See the security note at the top of each script for specifics.
 
 ## CI
 

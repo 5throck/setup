@@ -67,6 +67,8 @@ bash setup-mac.sh --docker
 bash setup-mac.sh --wezterm --docker
 # 이미 설치된 도구도 모두 재설치
 bash setup-mac.sh --force
+# 선택: 회사별 추가 도구 설치
+bash setup-mac.sh --company lotte
 ```
 
 ### Linux (Ubuntu / Debian)
@@ -81,6 +83,8 @@ bash setup-linux.sh --docker
 bash setup-linux.sh --wezterm --docker
 # 이미 설치된 도구도 모두 재설치
 bash setup-linux.sh --force
+# 선택: 회사별 추가 도구 설치
+bash setup-linux.sh --company lotte
 ```
 
 > macOS/Linux는 사전 점검(인터넷, 디스크 공간, OS 정보), `~/workshop-setup-logs/` 아래 실행 로그, `--force` 처리를 `setup-lib.sh`를 통해 공유합니다.
@@ -107,6 +111,7 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Docker            
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Force             # 이미 설치된 도구도 모두 재설치
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # 선택 옵션 전부 설치
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 --wezterm --docker --force  # 동일 옵션, mac/linux 스타일 플래그
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Company lotte  # 회사별 추가 도구 설치
 ```
 
 > **실행 후**: 터미널을 닫고 다시 열어 PATH 변경 사항을 반영하세요.

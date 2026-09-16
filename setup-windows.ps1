@@ -1,8 +1,10 @@
 ﻿# Workshop Setup — Windows
-# Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force]
-#    or: .\setup-windows.ps1 [--wsl2] [--wezterm] [--docker] [--force]
+# Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force] [-Company <name>]
+#    or: .\setup-windows.ps1 [--wsl2] [--wezterm] [--docker] [--force] [--company <name>]
 # (the --long-flag spellings match setup-mac.sh / setup-linux.sh; both forms
 # are accepted and can be mixed)
+# -Company / --company installs additional tools for a specific organization
+# (e.g. -Company lotte). See Get-CompanyInstallUrl below for supported names.
 # Requires PowerShell 7+. Under Windows PowerShell 5.1 the script relaunches
 # itself via pwsh automatically (installing PowerShell 7 first if needed).
 # Run PowerShell as Administrator before executing.
@@ -21,11 +23,13 @@
 # production/enterprise environments, prefer checking the installer's
 # checksum/signature against a known-good value first, or installing via
 # winget instead.
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [switch]$WSL2,
     [switch]$WezTerm,
     [switch]$Docker,
     [switch]$Force,
+    [string]$Company,
     # Catches anything not bound above so the bash scripts' --long-flag
     # spellings (e.g. --wezterm, --docker) work here too instead of erroring
     # as an unrecognized positional argument.
@@ -37,13 +41,21 @@ param(
 # the native PowerShell switches above, so invocation is consistent across
 # platforms (-WSL2 / --wsl2 are equivalent, etc). --wsl2 is Windows-only —
 # mac/linux have no equivalent flag.
-foreach ($arg in $RemainingArgs) {
-    switch -Regex ($arg) {
+for ($i = 0; $i -lt $RemainingArgs.Count; $i++) {
+    switch -Regex ($RemainingArgs[$i]) {
         '^--wsl2$'    { $WSL2    = $true }
         '^--wezterm$' { $WezTerm = $true }
         '^--docker$'  { $Docker  = $true }
         '^--force$'   { $Force   = $true }
-        default       { Write-Host "  ⚠️  Unknown option: $arg" -ForegroundColor Yellow }
+        '^--company$' {
+            $i++
+            if ($i -lt $RemainingArgs.Count) {
+                $Company = $RemainingArgs[$i]
+            } else {
+                Write-Host "  ⚠️  --company requires a value" -ForegroundColor Yellow
+            }
+        }
+        default       { Write-Host "  ⚠️  Unknown option: $($RemainingArgs[$i])" -ForegroundColor Yellow }
     }
 }
 
@@ -79,6 +91,16 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
         return $false
     } finally {
         Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# --company <name>: known companies' additional, company-specific installers.
+# Add new companies here as they're onboarded (parity with setup-lib.sh's
+# company_install_url for mac/linux).
+function Get-CompanyInstallUrl($Name) {
+    switch ($Name.ToLowerInvariant()) {
+        "lotte" { return "https://codeasst.lotteinnovate.com/install.ps1" }
+        default { return $null }
     }
 }
 
@@ -722,6 +744,23 @@ if ($Docker) {
     } else {
         Install-WingetPackage "Docker.DockerDesktop" "Install Docker Desktop"
         Write-Host "  ⚠️  Launch Docker Desktop once to complete setup." -ForegroundColor Yellow
+    }
+}
+if ($Company) {
+    $companyUrl = Get-CompanyInstallUrl $Company
+    if ($companyUrl) {
+        $companyOk = Invoke-RemoteInstaller $companyUrl {
+            param($installerPath)
+            & $installerPath
+        }
+        if ($companyOk) {
+            Write-Host "✅  $Company company tools installed" -ForegroundColor Green
+        } else {
+            Write-Host "❌  $Company company tools install failed" -ForegroundColor Red
+            $Errors.Add("Install $Company company tools")
+        }
+    } else {
+        Write-Host "  ⚠️  Unknown --company '$Company' — skipping company-specific install." -ForegroundColor Yellow
     }
 }
 

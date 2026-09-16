@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Workshop Setup — Linux (Ubuntu/Debian)
-# Usage: bash setup-linux.sh [--wezterm] [--docker] [--force]
+# Usage: bash setup-linux.sh [--wezterm] [--docker] [--force] [--company <name>]
+# --company installs an organization's additional tools (e.g. --company lotte).
+# See company_install_url in setup-lib.sh for supported names.
 #
 # Env overrides for reproducible installs: BUN_VERSION, UV_VERSION, PYTHON_VERSION
 # (default: latest). Example: BUN_VERSION=1.1.34 bash setup-linux.sh
@@ -173,6 +175,8 @@ if [[ " $* " == *" --wezterm "* ]]; then
     printf "${GREEN}✅${NC}  WezTerm ${DIM}(already installed)${NC}\n"
   fi
 fi
+
+install_company_tools
 
 # ── 8. Git config check ───────────────────────────────────────────────────────
 section 8 $TOTAL "Git & GitHub"

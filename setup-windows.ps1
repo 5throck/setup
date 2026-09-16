@@ -414,6 +414,69 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
     return $ok
 }
 
+# Downloads and runs a remote .ps1 installer with the same spinner/quiet-on-
+# success UI as RunStep, but via Start-Process + real OS-level stdout/stderr
+# redirection instead of a background Job. Some third-party installers spawn
+# native subprocesses (e.g. npm) that write straight to the inherited console
+# handle rather than through PowerShell's output streams — that bypasses a
+# Job's virtualized stream capture entirely, so its output leaks to the
+# console live even though RunStep is supposed to keep it quiet on success.
+# RedirectStandardOutput/-Error operate at the process-handle level and are
+# inherited by descendant processes by default, so this suppresses it too.
+function Invoke-QuietRemoteInstaller($Label, $Url) {
+    $tmp    = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
+    $outLog = Join-Path $env:TEMP "installer-out-$([guid]::NewGuid()).log"
+    $errLog = Join-Path $env:TEMP "installer-err-$([guid]::NewGuid()).log"
+    try {
+        $downloaded = $false
+        for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
+            try {
+                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                $downloaded = $true
+            } catch {
+                if ($attempt -ge 3) { throw }
+                Start-Sleep -Seconds (2 * $attempt)
+            }
+        }
+        Unblock-File -Path $tmp -ErrorAction SilentlyContinue
+
+        $psExe = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+        if (-not $psExe) { $psExe = (Get-Command powershell -ErrorAction SilentlyContinue).Source }
+
+        $proc = Start-Process -FilePath $psExe `
+            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tmp) `
+            -NoNewWindow -PassThru `
+            -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+        $i = 0
+        while (-not $proc.HasExited) {
+            $ch = $SpinChars[$i % $SpinChars.Count]
+            Write-Host ("`r  $ch  $Label") -NoNewline -ForegroundColor Cyan
+            $i++
+            Start-Sleep -Milliseconds 80
+        }
+        $ok = ($proc.ExitCode -eq 0)
+        if ($ok) {
+            Write-Host ("`r✅  $Label   ") -ForegroundColor Green
+        } else {
+            $diag = @()
+            if (Test-Path $errLog) { $diag += Get-Content $errLog -ErrorAction SilentlyContinue }
+            if ($diag.Count -eq 0 -and (Test-Path $outLog)) { $diag += Get-Content $outLog -ErrorAction SilentlyContinue }
+            foreach ($line in (@($diag | Where-Object { $_ -and $_.Trim() }) | Select-Object -Last 5)) {
+                Write-Host "     $line" -ForegroundColor DarkGray
+            }
+            Write-Host ("`r❌  $Label   ") -ForegroundColor Red
+            $Errors.Add($Label)
+        }
+        return $ok
+    } catch {
+        Write-Host "  ⚠️  Installer download/run failed: $_" -ForegroundColor Yellow
+        $Errors.Add($Label)
+        return $false
+    } finally {
+        Remove-Item -Path $tmp, $outLog, $errLog -Force -ErrorAction SilentlyContinue
+    }
+}
+
 function ShouldInstall($cmd) {
     return (-not (Installed $cmd)) -or $Force
 }
@@ -819,22 +882,12 @@ if ($Company) {
     $companyUrl = Get-CompanyInstallUrl $Company
     if ($companyUrl) {
         # Third-party company installers tend to be far chattier than our own
-        # steps (banners, package-manager logs, etc). Run it through RunStep
-        # like every other step instead of Invoke-RemoteInstaller's raw
-        # passthrough, so output is captured and only shown if it fails —
-        # matching install_company_tools' use of run_step on mac/linux.
-        $null = RunStep "Install $Company company tools" {
-            param($url)
-            $tmp = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
-            try {
-                Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
-                Unblock-File -Path $tmp -ErrorAction SilentlyContinue
-                & $tmp
-                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            } finally {
-                Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
-            }
-        } @($companyUrl)
+        # steps (banners, package-manager logs, etc), and some (e.g. lotte's,
+        # which shells out to npm) write straight to the console in a way
+        # that a RunStep background Job can't capture — use
+        # Invoke-QuietRemoteInstaller instead, which redirects at the OS
+        # process level and catches that too.
+        $null = Invoke-QuietRemoteInstaller "Install $Company company tools" $companyUrl
     } else {
         Write-Host "  ⚠️  Unknown --company '$Company' — skipping company-specific install." -ForegroundColor Yellow
     }

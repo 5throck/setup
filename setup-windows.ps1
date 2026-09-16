@@ -48,7 +48,7 @@ for ($i = 0; $i -lt $RemainingArgs.Count; $i++) {
         '^--wezterm$'       { $WezTerm = $true }
         '^--docker$'        { $Docker  = $true }
         '^--force$'         { $Force   = $true }
-        '^(-h|--help)$'     { $Help    = $true }
+        '^(-h|--h|--help)$' { $Help    = $true }
         '^--company$' {
             $i++
             if ($i -lt $RemainingArgs.Count) {
@@ -255,6 +255,22 @@ function Installed($cmd) {
     return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
 }
 
+# Windows ships a non-functional "python.exe" / "python3.exe" App Execution
+# Alias stub on PATH (under %LOCALAPPDATA%\Microsoft\WindowsApps) even when no
+# real Python is installed — Get-Command finds it, so the generic Installed
+# check false-positives and skips the real install; the stub prints just
+# "Python" with no version when run non-interactively. Require an actual
+# "Python X.Y" version string instead of mere command presence.
+function Test-RealPython {
+    if (-not (Installed python)) { return $false }
+    try {
+        $verOut = (& python --version 2>&1 | Out-String)
+        return ($verOut -match 'Python \d+\.\d+')
+    } catch {
+        return $false
+    }
+}
+
 function RefreshEnv {
     $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" +
                 [System.Environment]::GetEnvironmentVariable("PATH", "User")
@@ -268,9 +284,13 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     # Build args manually: splatting switch params to a native command on
     # 5.1 emits "-Switch:$false", which pwsh -File rejects.
     $relaunchArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
-    foreach ($sw in 'WSL2', 'WezTerm', 'Docker', 'Force') {
+    foreach ($sw in 'WSL2', 'WezTerm', 'Docker', 'Force', 'Help') {
         if (Get-Variable $sw -ValueOnly -ErrorAction SilentlyContinue) { $relaunchArgs += "-$sw" }
     }
+    # $Company is a string, not a switch — forward it as a name/value pair
+    # (this was previously dropped entirely on 5.1, silently discarding
+    # --company before the relaunch).
+    if ($Company) { $relaunchArgs += @('-Company', $Company) }
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
     if (-not $pwshCmd) {
         Write-Host "  ℹ️  PowerShell 7이 필요합니다 — winget으로 설치합니다..." -ForegroundColor Yellow
@@ -630,13 +650,37 @@ if ((-not (Installed bun)) -or $Force) {
 
 # ── 6. Runtime: python3 ───────────────────────────────────────────────────────
 Section 6 $TOTAL "Runtime: python3"
-if ((-not $Force) -and (Installed python)) {
+if ((-not $Force) -and (Test-RealPython)) {
     Write-Host "✅  $(python --version) (already installed)" -ForegroundColor Green
 } else {
     $null = RunStep "Install Python 3" {
         winget install Python.Python.3.13 --silent --accept-source-agreements
     }
     RefreshEnv
+    if (-not (Test-RealPython)) {
+        # The WindowsApps alias stub can still shadow a freshly installed
+        # interpreter if it sits earlier in PATH — locate the real install
+        # and prepend it so 'python' resolves correctly without a new shell.
+        $pyDir = @(
+            (Get-ChildItem "$env:LOCALAPPDATA\Programs\Python" -Directory -Filter "Python3*" -ErrorAction SilentlyContinue),
+            (Get-ChildItem "$env:ProgramFiles" -Directory -Filter "Python3*" -ErrorAction SilentlyContinue)
+        ) | ForEach-Object { $_ } | Where-Object { Test-Path (Join-Path $_.FullName "python.exe") } |
+            Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
+        if ($pyDir) {
+            $userPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+            if ($userPath -notlike "*$pyDir*") {
+                [System.Environment]::SetEnvironmentVariable("PATH", "$pyDir;$userPath", "User")
+            }
+            $env:PATH = "$pyDir;$env:PATH"
+        }
+    }
+    if (Test-RealPython) {
+        Write-Host "✅  $(python --version) installed" -ForegroundColor Green
+    } else {
+        Write-Host "  ⚠️  'python' still resolves to the Windows Store alias stub." -ForegroundColor Yellow
+        Write-Host "     Disable it: Settings > Apps > Advanced app settings > App execution aliases > turn off 'python.exe'/'python3.exe', then open a new terminal." -ForegroundColor Yellow
+        $Errors.Add("Install Python 3")
+    }
 }
 
 # ── 7. Runtime: uv ───────────────────────────────────────────────────────────

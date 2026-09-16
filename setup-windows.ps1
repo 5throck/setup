@@ -774,16 +774,23 @@ if ($Docker) {
 if ($Company) {
     $companyUrl = Get-CompanyInstallUrl $Company
     if ($companyUrl) {
-        $companyOk = Invoke-RemoteInstaller $companyUrl {
-            param($installerPath)
-            & $installerPath
-        }
-        if ($companyOk) {
-            Write-Host "✅  $Company company tools installed" -ForegroundColor Green
-        } else {
-            Write-Host "❌  $Company company tools install failed" -ForegroundColor Red
-            $Errors.Add("Install $Company company tools")
-        }
+        # Third-party company installers tend to be far chattier than our own
+        # steps (banners, package-manager logs, etc). Run it through RunStep
+        # like every other step instead of Invoke-RemoteInstaller's raw
+        # passthrough, so output is captured and only shown if it fails —
+        # matching install_company_tools' use of run_step on mac/linux.
+        $null = RunStep "Install $Company company tools" {
+            param($url)
+            $tmp = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                Unblock-File -Path $tmp -ErrorAction SilentlyContinue
+                & $tmp
+                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            } finally {
+                Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+            }
+        } @($companyUrl)
     } else {
         Write-Host "  ⚠️  Unknown --company '$Company' — skipping company-specific install." -ForegroundColor Yellow
     }

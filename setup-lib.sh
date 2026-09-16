@@ -23,7 +23,7 @@ _i=0
 while [ $_i -lt ${#_args[@]} ]; do
   case "${_args[$_i]}" in
     --force) FORCE=1 ;;
-    -h|--help) HELP=1 ;;
+    -h|--h|--help) HELP=1 ;;
     --company)
       _i=$((_i + 1))
       COMPANY="${_args[$_i]:-}"

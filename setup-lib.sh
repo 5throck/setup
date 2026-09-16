@@ -13,14 +13,16 @@ BG_PIDS=()
 
 # ── Flags ─────────────────────────────────────────────────────────────────────
 FORCE=0
-HELP=0
+# Consumed by the sourcing script (setup-mac.sh / setup-linux.sh), not here —
+# exported so shellcheck (which analyzes this file as its own target in CI)
+# doesn't flag it as unused.
+export HELP=0
 COMPANY=""
 _args=("$@")
 _i=0
 while [ $_i -lt ${#_args[@]} ]; do
   case "${_args[$_i]}" in
     --force) FORCE=1 ;;
-    # shellcheck disable=SC2034  # consumed by the sourcing script (setup-mac.sh / setup-linux.sh), not here
     -h|--help) HELP=1 ;;
     --company)
       _i=$((_i + 1))

@@ -1,5 +1,8 @@
 ﻿# Workshop Setup — Windows
 # Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force]
+#    or: .\setup-windows.ps1 [--wsl2] [--wezterm] [--docker] [--force]
+# (the --long-flag spellings match setup-mac.sh / setup-linux.sh; both forms
+# are accepted and can be mixed)
 # Requires PowerShell 7+. Under Windows PowerShell 5.1 the script relaunches
 # itself via pwsh automatically (installing PowerShell 7 first if needed).
 # Run PowerShell as Administrator before executing.
@@ -22,8 +25,27 @@ param(
     [switch]$WSL2,
     [switch]$WezTerm,
     [switch]$Docker,
-    [switch]$Force
+    [switch]$Force,
+    # Catches anything not bound above so the bash scripts' --long-flag
+    # spellings (e.g. --wezterm, --docker) work here too instead of erroring
+    # as an unrecognized positional argument.
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
 )
+
+# Accept setup-mac.sh / setup-linux.sh's --long-flag spellings as aliases for
+# the native PowerShell switches above, so invocation is consistent across
+# platforms (-WSL2 / --wsl2 are equivalent, etc). --wsl2 is Windows-only —
+# mac/linux have no equivalent flag.
+foreach ($arg in $RemainingArgs) {
+    switch -Regex ($arg) {
+        '^--wsl2$'    { $WSL2    = $true }
+        '^--wezterm$' { $WezTerm = $true }
+        '^--docker$'  { $Docker  = $true }
+        '^--force$'   { $Force   = $true }
+        default       { Write-Host "  ⚠️  Unknown option: $arg" -ForegroundColor Yellow }
+    }
+}
 
 $BunVersion = if ($env:BUN_VERSION) { $env:BUN_VERSION } else { "latest" }
 $UvVersion  = if ($env:UV_VERSION)  { $env:UV_VERSION }  else { "latest" }

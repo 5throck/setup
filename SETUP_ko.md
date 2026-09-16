@@ -100,12 +100,13 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1
 
-# 옵션:
+# 옵션 (PowerShell 고유 스위치, 또는 mac/linux와 동일한 --long-flag 형식 모두 사용 가능):
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2             # WSL2 함께 설치 (재시작 필요)
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WezTerm          # WezTerm 함께 설치
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Docker            # Docker Desktop 함께 설치
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Force             # 이미 설치된 도구도 모두 재설치
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # 선택 옵션 전부 설치
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 --wezterm --docker --force  # 동일 옵션, mac/linux 스타일 플래그
 ```
 
 > **실행 후**: 터미널을 닫고 다시 열어 PATH 변경 사항을 반영하세요.

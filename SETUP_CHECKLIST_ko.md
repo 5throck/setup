@@ -95,7 +95,7 @@ uv pip install -r requirements.txt
 - [ ] `uv`로 Python 의존성 설치 완료
 
 > **Docker**는 선택 사항입니다. 운영자가 별도로 안내하는 경우에만 설치하세요.
-> macOS/Linux: 설치 스크립트에 `--docker` 플래그 추가. Windows: `-Docker` 플래그.
+> macOS/Linux: 설치 스크립트에 `--docker` 플래그 추가. Windows: `-Docker` (또는 macOS/Linux와 동일한 `--docker`도 가능).
 > - [ ] *(선택)* Docker 설치 및 데몬 실행 확인
 
 ---

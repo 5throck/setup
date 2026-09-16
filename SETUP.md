@@ -101,12 +101,13 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1
 
-# Options:
+# Options (native PowerShell switches, or --long-flags matching mac/linux — both work):
 .\setup-windows.ps1 -WSL2      # also install WSL2 (requires restart)
 .\setup-windows.ps1 -WezTerm   # also install WezTerm
 .\setup-windows.ps1 -Docker    # also install Docker Desktop
 .\setup-windows.ps1 -Force      # reinstall all tools even if already installed
 .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # all optional tools
+.\setup-windows.ps1 --wezterm --docker --force  # same options, mac/linux-style flags
 # (these direct forms also work after the session-only Set-ExecutionPolicy above;
 #  without it, use: powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 [-WSL2] ...)
 ```

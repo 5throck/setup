@@ -13,6 +13,7 @@ BG_PIDS=()
 
 # ── Flags ─────────────────────────────────────────────────────────────────────
 FORCE=0
+# shellcheck disable=SC2034  # consumed by the sourcing script (setup-mac.sh / setup-linux.sh), not here
 HELP=0
 COMPANY=""
 _args=("$@")

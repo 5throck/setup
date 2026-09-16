@@ -13,9 +13,20 @@ BG_PIDS=()
 
 # ── Flags ─────────────────────────────────────────────────────────────────────
 FORCE=0
-for arg in "$@"; do
-  [[ "$arg" == "--force" ]] && FORCE=1
+COMPANY=""
+_args=("$@")
+_i=0
+while [ $_i -lt ${#_args[@]} ]; do
+  case "${_args[$_i]}" in
+    --force) FORCE=1 ;;
+    --company)
+      _i=$((_i + 1))
+      COMPANY="${_args[$_i]:-}"
+      ;;
+  esac
+  _i=$((_i + 1))
 done
+unset _args _i
 
 # ── Version pins (override via env, e.g. BUN_VERSION=1.1.34 bash setup-linux.sh) ──
 BUN_VERSION="${BUN_VERSION:-latest}"
@@ -96,6 +107,29 @@ fetch_and_run() {
   local rc=$?
   rm -f "$tmp"
   return $rc
+}
+
+# --company <name>: known companies' additional, company-specific installers.
+# Case statement (not an associative array) for compatibility with macOS's
+# stock bash 3.2, which the rest of this file avoids too. Add new companies
+# here as they're onboarded.
+company_install_url() {
+  case "$1" in
+    lotte) echo "https://codeasst.lotteinnovate.com/install.sh" ;;
+    *)     echo "" ;;
+  esac
+}
+
+# Run the --company installer for $COMPANY, if any was requested.
+install_company_tools() {
+  [ -z "$COMPANY" ] && return 0
+  local url
+  url=$(company_install_url "$COMPANY")
+  if [ -z "$url" ]; then
+    printf "${YELLOW}⚠️ ${NC}  Unknown --company '%s' — skipping company-specific install.\n" "$COMPANY"
+    return 0
+  fi
+  run_step "Install $COMPANY company tools" fetch_and_run "$url" bash
 }
 
 # bun's updater exits nonzero when already on the latest version — only a

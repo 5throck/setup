@@ -1,5 +1,10 @@
 ﻿# Workshop Setup — Windows
-# Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force]
+# Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force] [-Company <name>]
+#    or: .\setup-windows.ps1 [--wsl2] [--wezterm] [--docker] [--force] [--company <name>]
+# (the --long-flag spellings match setup-mac.sh / setup-linux.sh; both forms
+# are accepted and can be mixed)
+# -Company / --company installs additional tools for a specific organization
+# (e.g. -Company lotte). See Get-CompanyInstallUrl below for supported names.
 # Requires PowerShell 7+. Under Windows PowerShell 5.1 the script relaunches
 # itself via pwsh automatically (installing PowerShell 7 first if needed).
 # Run PowerShell as Administrator before executing.
@@ -18,12 +23,41 @@
 # production/enterprise environments, prefer checking the installer's
 # checksum/signature against a known-good value first, or installing via
 # winget instead.
+[CmdletBinding(PositionalBinding = $false)]
 param(
     [switch]$WSL2,
     [switch]$WezTerm,
     [switch]$Docker,
-    [switch]$Force
+    [switch]$Force,
+    [string]$Company,
+    # Catches anything not bound above so the bash scripts' --long-flag
+    # spellings (e.g. --wezterm, --docker) work here too instead of erroring
+    # as an unrecognized positional argument.
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
 )
+
+# Accept setup-mac.sh / setup-linux.sh's --long-flag spellings as aliases for
+# the native PowerShell switches above, so invocation is consistent across
+# platforms (-WSL2 / --wsl2 are equivalent, etc). --wsl2 is Windows-only —
+# mac/linux have no equivalent flag.
+for ($i = 0; $i -lt $RemainingArgs.Count; $i++) {
+    switch -Regex ($RemainingArgs[$i]) {
+        '^--wsl2$'    { $WSL2    = $true }
+        '^--wezterm$' { $WezTerm = $true }
+        '^--docker$'  { $Docker  = $true }
+        '^--force$'   { $Force   = $true }
+        '^--company$' {
+            $i++
+            if ($i -lt $RemainingArgs.Count) {
+                $Company = $RemainingArgs[$i]
+            } else {
+                Write-Host "  ⚠️  --company requires a value" -ForegroundColor Yellow
+            }
+        }
+        default       { Write-Host "  ⚠️  Unknown option: $($RemainingArgs[$i])" -ForegroundColor Yellow }
+    }
+}
 
 $BunVersion = if ($env:BUN_VERSION) { $env:BUN_VERSION } else { "latest" }
 $UvVersion  = if ($env:UV_VERSION)  { $env:UV_VERSION }  else { "latest" }
@@ -57,6 +91,59 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
         return $false
     } finally {
         Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# --company <name>: known companies' additional, company-specific installers.
+# Add new companies here as they're onboarded (parity with setup-lib.sh's
+# company_install_url for mac/linux).
+function Get-CompanyInstallUrl($Name) {
+    switch ($Name.ToLowerInvariant()) {
+        "lotte" { return "https://codeasst.lotteinnovate.com/install.ps1" }
+        default { return $null }
+    }
+}
+
+# Winget's Google.Chrome manifest pins a SHA-256 for a specific build, but
+# Google serves this URL as an "evergreen" always-latest download — so the
+# pinned hash routinely goes stale and winget refuses to install (a genuine,
+# not-safe-to-bypass integrity failure). Fall back to downloading the MSI
+# directly and verifying it's Authenticode-signed by Google instead of
+# checking it against a hash that we know is unreliable for this URL.
+function Install-ChromeDirect {
+    $null = RunStep "Install Google Chrome (direct download)" {
+        # msiexec elevates per-machine installs via a UAC consent prompt; in
+        # this non-interactive script that prompt can never be answered and
+        # the job would hang indefinitely, so refuse up front instead.
+        $adminSid = [Security.Principal.SecurityIdentifier]"S-1-5-32-544"
+        $isAdmin  = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole($adminSid)
+        if (-not $isAdmin) {
+            Write-Host "     Not running as Administrator — re-run this script elevated to install Chrome." -ForegroundColor Red
+            exit 1
+        }
+        $msi = Join-Path $env:TEMP "chrome_installer_$([guid]::NewGuid()).msi"
+        try {
+            $downloaded = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
+                try {
+                    Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $msi -UseBasicParsing -ErrorAction Stop
+                    $downloaded = $true
+                } catch {
+                    if ($attempt -ge 3) { throw }
+                    Start-Sleep -Seconds (2 * $attempt)
+                }
+            }
+            $sig = Get-AuthenticodeSignature -FilePath $msi
+            if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Google LLC') {
+                Write-Host "     Authenticode signature check failed: Status=$($sig.Status) Subject=$($sig.SignerCertificate.Subject)" -ForegroundColor Red
+                exit 1
+            }
+            Write-Host "     verified signer: $($sig.SignerCertificate.Subject)" -ForegroundColor DarkGray
+            $proc = Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait -PassThru
+            if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
+        } finally {
+            Remove-Item -Path $msi -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
@@ -291,15 +378,32 @@ function Install-WingetPackage($Id, $Label) {
     # ("use winget upgrade"), and `winget upgrade` exits nonzero when there is
     # nothing to upgrade — so try upgrade, then install, and treat "already
     # present" as success.
+    #
+    # Winget's community manifests occasionally lag a vendor's live download
+    # (the published SHA-256 in the manifest doesn't match what the vendor is
+    # currently serving), which fails with an installer-hash-mismatch error.
+    # This is a legitimate integrity check and must never be bypassed — but a
+    # stale *local* source cache is a common, safe-to-retry cause, so refresh
+    # `winget source update` once and retry before giving up.
     $null = RunStep $Label {
         param($pkgId)
-        winget upgrade --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+        $out = winget upgrade --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+        $out | ForEach-Object { $_.ToString() }
         if ($LASTEXITCODE -ne 0) {
-            winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+            $out = winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+            $out | ForEach-Object { $_.ToString() }
             if ($LASTEXITCODE -ne 0) {
                 winget list --id $pkgId -e --accept-source-agreements 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) { exit 1 }
-                $global:LASTEXITCODE = 0  # already installed at latest — fine
+                if ($LASTEXITCODE -ne 0) {
+                    if ("$out" -match '해시|hash') {
+                        winget source update 2>&1 | Out-Null
+                        $out = winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+                        $out | ForEach-Object { $_.ToString() }
+                    }
+                    if ($LASTEXITCODE -ne 0) { exit 1 }
+                } else {
+                    $global:LASTEXITCODE = 0  # already installed at latest — fine
+                }
             }
         }
     } @($Id)
@@ -542,10 +646,18 @@ Section 8 $TOTAL "CLI tools"
 if ((-not $Force) -and (Installed claude)) {
     Write-Host "✅  claude (already installed)" -ForegroundColor Green
 } else {
-    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically
+    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically.
+    # Note: bun writes normal progress/warning output to stderr, which
+    # PowerShell jobs otherwise surface as error records (failing RunStep
+    # even on success) — merge stderr into stdout and key off $LASTEXITCODE
+    # instead, matching Install-WingetPackage's pattern.
     $claudeInstalled = $false
     if (Installed bun) {
-        $claudeInstalled = RunStep "Install Claude Code CLI" { bun install -g @anthropic-ai/claude-code }
+        $claudeInstalled = RunStep "Install Claude Code CLI" {
+            $out = bun install -g @anthropic-ai/claude-code 2>&1
+            $out | ForEach-Object { $_.ToString() }
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
     }
     if (-not $claudeInstalled) {
         if (-not (Installed bun)) {
@@ -553,8 +665,17 @@ if ((-not $Force) -and (Installed claude)) {
         } else {
             Write-Host "  ⚠️  bun install failed — falling back to npm" -ForegroundColor Yellow
         }
-        $claudeInstalled = RunStep "Install Claude Code CLI (npm fallback)" { npm install -g @anthropic-ai/claude-code }
-        RefreshEnv
+        if (Installed npm) {
+            $claudeInstalled = RunStep "Install Claude Code CLI (npm fallback)" {
+                $out = npm install -g @anthropic-ai/claude-code 2>&1
+                $out | ForEach-Object { $_.ToString() }
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+            RefreshEnv
+        } else {
+            Write-Host "  ❌  Neither bun nor npm available — cannot install Claude Code CLI" -ForegroundColor Red
+            $Errors.Add("Install Claude Code CLI")
+        }
     }
 }
 if ((-not $Force) -and (Installed codex)) {
@@ -587,6 +708,12 @@ if ((-not $Force) -and (Test-Path "C:\Program Files\Google\Chrome\Application\ch
     Write-Host "✅  Google Chrome (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Google.Chrome" "Install Google Chrome"
+    if (-not (Test-Path "C:\Program Files\Google\Chrome\Application\chrome.exe")) {
+        # winget's pinned hash for Chrome's evergreen download URL is
+        # frequently stale (see Install-ChromeDirect above) — fall back to a
+        # signature-verified direct download rather than leaving this failed.
+        Install-ChromeDirect
+    }
 }
 if ((-not $Force) -and (Test-Path "$env:LOCALAPPDATA\Programs\Claude\Claude.exe")) {
     Write-Host "✅  Claude Desktop (already installed)" -ForegroundColor Green
@@ -617,6 +744,23 @@ if ($Docker) {
     } else {
         Install-WingetPackage "Docker.DockerDesktop" "Install Docker Desktop"
         Write-Host "  ⚠️  Launch Docker Desktop once to complete setup." -ForegroundColor Yellow
+    }
+}
+if ($Company) {
+    $companyUrl = Get-CompanyInstallUrl $Company
+    if ($companyUrl) {
+        $companyOk = Invoke-RemoteInstaller $companyUrl {
+            param($installerPath)
+            & $installerPath
+        }
+        if ($companyOk) {
+            Write-Host "✅  $Company company tools installed" -ForegroundColor Green
+        } else {
+            Write-Host "❌  $Company company tools install failed" -ForegroundColor Red
+            $Errors.Add("Install $Company company tools")
+        }
+    } else {
+        Write-Host "  ⚠️  Unknown --company '$Company' — skipping company-specific install." -ForegroundColor Yellow
     }
 }
 

@@ -95,7 +95,7 @@ uv pip install -r requirements.txt
 - [ ] Python dependencies installed via `uv`
 
 > **Docker** is optional. Install only if the workshop organizer asks you to.
-> macOS/Linux: pass `--docker` to the setup script. Windows: pass `-Docker`.
+> macOS/Linux: pass `--docker` to the setup script. Windows: pass `-Docker` (or `--docker`, same as macOS/Linux).
 > - [ ] *(optional)* Docker installed and daemon running
 
 ---

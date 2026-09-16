@@ -67,6 +67,8 @@ bash setup-mac.sh --docker
 bash setup-mac.sh --wezterm --docker
 # Force-reinstall all tools even if already present
 bash setup-mac.sh --force
+# Optional: install an organization's additional tools
+bash setup-mac.sh --company lotte
 ```
 
 ### Linux (Ubuntu / Debian)
@@ -81,6 +83,8 @@ bash setup-linux.sh --docker
 bash setup-linux.sh --wezterm --docker
 # Force-reinstall all tools even if already present
 bash setup-linux.sh --force
+# Optional: install an organization's additional tools
+bash setup-linux.sh --company lotte
 ```
 
 > macOS/Linux share preflight checks (internet, disk space, OS info), a run log under `~/workshop-setup-logs/`, and `--force` via `setup-lib.sh`.
@@ -101,12 +105,14 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1
 
-# Options:
+# Options (native PowerShell switches, or --long-flags matching mac/linux — both work):
 .\setup-windows.ps1 -WSL2      # also install WSL2 (requires restart)
 .\setup-windows.ps1 -WezTerm   # also install WezTerm
 .\setup-windows.ps1 -Docker    # also install Docker Desktop
 .\setup-windows.ps1 -Force      # reinstall all tools even if already installed
 .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # all optional tools
+.\setup-windows.ps1 --wezterm --docker --force  # same options, mac/linux-style flags
+.\setup-windows.ps1 -Company lotte  # also install an organization's additional tools
 # (these direct forms also work after the session-only Set-ExecutionPolicy above;
 #  without it, use: powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 [-WSL2] ...)
 ```

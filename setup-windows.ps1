@@ -291,15 +291,32 @@ function Install-WingetPackage($Id, $Label) {
     # ("use winget upgrade"), and `winget upgrade` exits nonzero when there is
     # nothing to upgrade — so try upgrade, then install, and treat "already
     # present" as success.
+    #
+    # Winget's community manifests occasionally lag a vendor's live download
+    # (the published SHA-256 in the manifest doesn't match what the vendor is
+    # currently serving), which fails with an installer-hash-mismatch error.
+    # This is a legitimate integrity check and must never be bypassed — but a
+    # stale *local* source cache is a common, safe-to-retry cause, so refresh
+    # `winget source update` once and retry before giving up.
     $null = RunStep $Label {
         param($pkgId)
-        winget upgrade --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+        $out = winget upgrade --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+        $out | ForEach-Object { $_.ToString() }
         if ($LASTEXITCODE -ne 0) {
-            winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+            $out = winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+            $out | ForEach-Object { $_.ToString() }
             if ($LASTEXITCODE -ne 0) {
                 winget list --id $pkgId -e --accept-source-agreements 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) { exit 1 }
-                $global:LASTEXITCODE = 0  # already installed at latest — fine
+                if ($LASTEXITCODE -ne 0) {
+                    if ("$out" -match '해시|hash') {
+                        winget source update 2>&1 | Out-Null
+                        $out = winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
+                        $out | ForEach-Object { $_.ToString() }
+                    }
+                    if ($LASTEXITCODE -ne 0) { exit 1 }
+                } else {
+                    $global:LASTEXITCODE = 0  # already installed at latest — fine
+                }
             }
         }
     } @($Id)
@@ -542,10 +559,18 @@ Section 8 $TOTAL "CLI tools"
 if ((-not $Force) -and (Installed claude)) {
     Write-Host "✅  claude (already installed)" -ForegroundColor Green
 } else {
-    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically
+    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically.
+    # Note: bun writes normal progress/warning output to stderr, which
+    # PowerShell jobs otherwise surface as error records (failing RunStep
+    # even on success) — merge stderr into stdout and key off $LASTEXITCODE
+    # instead, matching Install-WingetPackage's pattern.
     $claudeInstalled = $false
     if (Installed bun) {
-        $claudeInstalled = RunStep "Install Claude Code CLI" { bun install -g @anthropic-ai/claude-code }
+        $claudeInstalled = RunStep "Install Claude Code CLI" {
+            $out = bun install -g @anthropic-ai/claude-code 2>&1
+            $out | ForEach-Object { $_.ToString() }
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        }
     }
     if (-not $claudeInstalled) {
         if (-not (Installed bun)) {
@@ -553,8 +578,17 @@ if ((-not $Force) -and (Installed claude)) {
         } else {
             Write-Host "  ⚠️  bun install failed — falling back to npm" -ForegroundColor Yellow
         }
-        $claudeInstalled = RunStep "Install Claude Code CLI (npm fallback)" { npm install -g @anthropic-ai/claude-code }
-        RefreshEnv
+        if (Installed npm) {
+            $claudeInstalled = RunStep "Install Claude Code CLI (npm fallback)" {
+                $out = npm install -g @anthropic-ai/claude-code 2>&1
+                $out | ForEach-Object { $_.ToString() }
+                if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            }
+            RefreshEnv
+        } else {
+            Write-Host "  ❌  Neither bun nor npm available — cannot install Claude Code CLI" -ForegroundColor Red
+            $Errors.Add("Install Claude Code CLI")
+        }
     }
 }
 if ((-not $Force) -and (Installed codex)) {

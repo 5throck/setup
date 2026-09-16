@@ -60,6 +60,49 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
     }
 }
 
+# Winget's Google.Chrome manifest pins a SHA-256 for a specific build, but
+# Google serves this URL as an "evergreen" always-latest download — so the
+# pinned hash routinely goes stale and winget refuses to install (a genuine,
+# not-safe-to-bypass integrity failure). Fall back to downloading the MSI
+# directly and verifying it's Authenticode-signed by Google instead of
+# checking it against a hash that we know is unreliable for this URL.
+function Install-ChromeDirect {
+    $null = RunStep "Install Google Chrome (direct download)" {
+        # msiexec elevates per-machine installs via a UAC consent prompt; in
+        # this non-interactive script that prompt can never be answered and
+        # the job would hang indefinitely, so refuse up front instead.
+        $adminSid = [Security.Principal.SecurityIdentifier]"S-1-5-32-544"
+        $isAdmin  = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole($adminSid)
+        if (-not $isAdmin) {
+            Write-Host "     Not running as Administrator — re-run this script elevated to install Chrome." -ForegroundColor Red
+            exit 1
+        }
+        $msi = Join-Path $env:TEMP "chrome_installer_$([guid]::NewGuid()).msi"
+        try {
+            $downloaded = $false
+            for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
+                try {
+                    Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $msi -UseBasicParsing -ErrorAction Stop
+                    $downloaded = $true
+                } catch {
+                    if ($attempt -ge 3) { throw }
+                    Start-Sleep -Seconds (2 * $attempt)
+                }
+            }
+            $sig = Get-AuthenticodeSignature -FilePath $msi
+            if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'O=Google LLC') {
+                Write-Host "     Authenticode signature check failed: Status=$($sig.Status) Subject=$($sig.SignerCertificate.Subject)" -ForegroundColor Red
+                exit 1
+            }
+            Write-Host "     verified signer: $($sig.SignerCertificate.Subject)" -ForegroundColor DarkGray
+            $proc = Start-Process msiexec.exe -ArgumentList "/i", "`"$msi`"", "/quiet", "/norestart" -Wait -PassThru
+            if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }
+        } finally {
+            Remove-Item -Path $msi -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
 $OutputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 # ── TLS 1.2 enforcement (required for irm/Invoke-WebRequest on PS 5.1) ─────
@@ -621,6 +664,12 @@ if ((-not $Force) -and (Test-Path "C:\Program Files\Google\Chrome\Application\ch
     Write-Host "✅  Google Chrome (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Google.Chrome" "Install Google Chrome"
+    if (-not (Test-Path "C:\Program Files\Google\Chrome\Application\chrome.exe")) {
+        # winget's pinned hash for Chrome's evergreen download URL is
+        # frequently stale (see Install-ChromeDirect above) — fall back to a
+        # signature-verified direct download rather than leaving this failed.
+        Install-ChromeDirect
+    }
 }
 if ((-not $Force) -and (Test-Path "$env:LOCALAPPDATA\Programs\Claude\Claude.exe")) {
     Write-Host "✅  Claude Desktop (already installed)" -ForegroundColor Green

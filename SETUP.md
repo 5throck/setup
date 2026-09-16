@@ -69,6 +69,8 @@ bash setup-mac.sh --wezterm --docker
 bash setup-mac.sh --force
 # Optional: install an organization's additional tools
 bash setup-mac.sh --company lotte
+# Show usage and exit
+bash setup-mac.sh --help
 ```
 
 ### Linux (Ubuntu / Debian)
@@ -85,6 +87,8 @@ bash setup-linux.sh --wezterm --docker
 bash setup-linux.sh --force
 # Optional: install an organization's additional tools
 bash setup-linux.sh --company lotte
+# Show usage and exit
+bash setup-linux.sh --help
 ```
 
 > macOS/Linux share preflight checks (internet, disk space, OS info), a run log under `~/workshop-setup-logs/`, and `--force` via `setup-lib.sh`.
@@ -113,6 +117,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1 -WSL2 -WezTerm -Docker  # all optional tools
 .\setup-windows.ps1 --wezterm --docker --force  # same options, mac/linux-style flags
 .\setup-windows.ps1 -Company lotte  # also install an organization's additional tools
+.\setup-windows.ps1 -Help      # show usage and exit (also: -h, --help)
 # (these direct forms also work after the session-only Set-ExecutionPolicy above;
 #  without it, use: powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 [-WSL2] ...)
 ```

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Workshop Setup — Linux (Ubuntu/Debian)
-# Usage: bash setup-linux.sh [--wezterm] [--docker] [--force] [--company <name>]
+# Usage: bash setup-linux.sh [--wezterm] [--docker] [--force] [--company <name>] [--help]
 # --company installs an organization's additional tools (e.g. --company lotte).
 # See company_install_url in setup-lib.sh for supported names.
 #
@@ -22,6 +22,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=setup-lib.sh
 # (sourced without extra args — setup-lib.sh reads this script's own "$@")
 source "$SCRIPT_DIR/setup-lib.sh"
+
+if [[ $HELP -eq 1 ]]; then
+  cat <<'EOF'
+Workshop Setup — Linux (Ubuntu/Debian)
+
+Usage: bash setup-linux.sh [options]
+
+Options:
+  --wezterm          Also install WezTerm (GPU-accelerated terminal)
+  --docker           Also install Docker
+  --force            Reinstall all tools even if already installed
+  --company <name>   Install an organization's additional tools (e.g. lotte)
+  -h, --help         Show this help message and exit
+
+Env overrides (default: latest):
+  BUN_VERSION, UV_VERSION, PYTHON_VERSION
+  Example: BUN_VERSION=1.1.34 bash setup-linux.sh
+EOF
+  exit 0
+fi
 
 init_logging "linux"
 

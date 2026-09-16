@@ -1,6 +1,6 @@
 ﻿# Workshop Setup — Windows
-# Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force] [-Company <name>]
-#    or: .\setup-windows.ps1 [--wsl2] [--wezterm] [--docker] [--force] [--company <name>]
+# Usage: .\setup-windows.ps1 [-WSL2] [-WezTerm] [-Docker] [-Force] [-Company <name>] [-Help]
+#    or: .\setup-windows.ps1 [--wsl2] [--wezterm] [--docker] [--force] [--company <name>] [--help]
 # (the --long-flag spellings match setup-mac.sh / setup-linux.sh; both forms
 # are accepted and can be mixed)
 # -Company / --company installs additional tools for a specific organization
@@ -30,6 +30,7 @@ param(
     [switch]$Docker,
     [switch]$Force,
     [string]$Company,
+    [switch]$Help,
     # Catches anything not bound above so the bash scripts' --long-flag
     # spellings (e.g. --wezterm, --docker) work here too instead of erroring
     # as an unrecognized positional argument.
@@ -43,10 +44,11 @@ param(
 # mac/linux have no equivalent flag.
 for ($i = 0; $i -lt $RemainingArgs.Count; $i++) {
     switch -Regex ($RemainingArgs[$i]) {
-        '^--wsl2$'    { $WSL2    = $true }
-        '^--wezterm$' { $WezTerm = $true }
-        '^--docker$'  { $Docker  = $true }
-        '^--force$'   { $Force   = $true }
+        '^--wsl2$'          { $WSL2    = $true }
+        '^--wezterm$'       { $WezTerm = $true }
+        '^--docker$'        { $Docker  = $true }
+        '^--force$'         { $Force   = $true }
+        '^(-h|--help)$'     { $Help    = $true }
         '^--company$' {
             $i++
             if ($i -lt $RemainingArgs.Count) {
@@ -57,6 +59,29 @@ for ($i = 0; $i -lt $RemainingArgs.Count; $i++) {
         }
         default       { Write-Host "  ⚠️  Unknown option: $($RemainingArgs[$i])" -ForegroundColor Yellow }
     }
+}
+
+if ($Help) {
+    @"
+Workshop Setup — Windows
+
+Usage: .\setup-windows.ps1 [options]
+   or: .\setup-windows.ps1 [--long-flags]  (mac/linux-style, can be mixed with the above)
+
+Options:
+  -WSL2, --wsl2            Also install WSL2 (requires restart; Windows-only)
+  -WezTerm, --wezterm      Also install WezTerm
+  -Docker, --docker        Also install Docker Desktop
+  -Force, --force          Reinstall all tools even if already installed
+  -Company, --company <name>
+                           Install an organization's additional tools (e.g. lotte)
+  -Help, -h, --help        Show this help message and exit
+
+Env overrides (default: latest):
+  `$env:BUN_VERSION, `$env:UV_VERSION
+  Example: `$env:BUN_VERSION="1.1.34"; .\setup-windows.ps1
+"@
+    exit 0
 }
 
 $BunVersion = if ($env:BUN_VERSION) { $env:BUN_VERSION } else { "latest" }
@@ -749,16 +774,23 @@ if ($Docker) {
 if ($Company) {
     $companyUrl = Get-CompanyInstallUrl $Company
     if ($companyUrl) {
-        $companyOk = Invoke-RemoteInstaller $companyUrl {
-            param($installerPath)
-            & $installerPath
-        }
-        if ($companyOk) {
-            Write-Host "✅  $Company company tools installed" -ForegroundColor Green
-        } else {
-            Write-Host "❌  $Company company tools install failed" -ForegroundColor Red
-            $Errors.Add("Install $Company company tools")
-        }
+        # Third-party company installers tend to be far chattier than our own
+        # steps (banners, package-manager logs, etc). Run it through RunStep
+        # like every other step instead of Invoke-RemoteInstaller's raw
+        # passthrough, so output is captured and only shown if it fails —
+        # matching install_company_tools' use of run_step on mac/linux.
+        $null = RunStep "Install $Company company tools" {
+            param($url)
+            $tmp = Join-Path $env:TEMP "installer-$([guid]::NewGuid()).ps1"
+            try {
+                Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                Unblock-File -Path $tmp -ErrorAction SilentlyContinue
+                & $tmp
+                if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            } finally {
+                Remove-Item -Path $tmp -Force -ErrorAction SilentlyContinue
+            }
+        } @($companyUrl)
     } else {
         Write-Host "  ⚠️  Unknown --company '$Company' — skipping company-specific install." -ForegroundColor Yellow
     }

@@ -87,13 +87,19 @@ fi
 
 # ── 2. Base tools ─────────────────────────────────────────────────────────────
 section 2 $TOTAL "Base tools"
-for pkg in curl git gh gitleaks; do
+for pkg in curl git gh; do
   if should_install "$pkg"; then
     run_step "Install $pkg" brew install "$pkg"
   else
     printf "${GREEN}✅${NC}  $pkg ${DIM}(already installed)${NC}\n"
   fi
 done
+
+if should_install gitleaks; then
+  run_step "Install gitleaks" brew install gitleaks
+else
+  printf "${GREEN}✅${NC}  ${DIM}gitleaks $(gitleaks version) (already installed)${NC}\n"
+fi
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
 section 3 $TOTAL "Runtime: bun"

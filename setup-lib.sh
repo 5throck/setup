@@ -89,13 +89,21 @@ should_install() {
   ! installed "$1" || [[ $FORCE -eq 1 ]]
 }
 
-# First line of `<tool> --version`, falling back to the bare tool name when
-# the tool has no --version flag or the check fails — every "already
-# installed" message can call this without a per-tool special case.
+# First line of `<tool> --version`, prefixed with the tool name unless the
+# output already starts with it (git/gh bake their name in; claude/agy just
+# print a bare number) — falls back to the bare tool name when the tool has
+# no --version flag or the check fails. Every "already installed" message
+# can call this without a per-tool special case.
 tool_version() {
   local v
   v=$("$1" --version 2>/dev/null | head -n1)
-  [[ -n "$v" ]] && echo "$v" || echo "$1"
+  if [[ -z "$v" ]]; then
+    echo "$1"
+  elif [[ "${v,,}" == "$1"* ]]; then
+    echo "$v"
+  else
+    echo "$1 $v"
+  fi
 }
 
 # Print the SHA-256 of a downloaded installer for auditability.

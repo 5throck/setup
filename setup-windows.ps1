@@ -481,12 +481,16 @@ function ShouldInstall($cmd) {
     return (-not (Installed $cmd)) -or $Force
 }
 
-# First line of `<tool> --version`, falling back to the bare tool name when
-# the tool has no --version flag or the check fails — every "already
-# installed" message can call this without a per-tool special case.
+# First line of `<tool> --version`, prefixed with the tool name unless the
+# output already starts with it (git/gh bake their name in; claude/agy just
+# print a bare number) — falls back to the bare tool name when the tool has
+# no --version flag or the check fails. Every "already installed" message
+# can call this without a per-tool special case.
 function Get-ToolVersion($cmd) {
     $v = (& $cmd --version 2>$null | Select-Object -First 1)
-    if ($v) { return $v } else { return $cmd }
+    if (-not $v) { return $cmd }
+    if ($v.ToLowerInvariant().StartsWith($cmd.ToLowerInvariant())) { return $v }
+    return "$cmd $v"
 }
 
 function Install-WingetPackage($Id, $Label) {

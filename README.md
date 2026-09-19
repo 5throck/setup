@@ -2,7 +2,7 @@
 
 [한국어](README_ko.md)
 
-One-shot setup scripts that get a machine ready for the workshop: base tools, runtimes (`bun`, `python3`, `uv`), CLI tools (`gh`, `claude`, `codex`, `agy`), and desktop apps — installing what can be automated and clearly prompting for manual-only apps on macOS, Linux (Ubuntu/Debian), and Windows.
+One-shot setup scripts that get a machine ready for the workshop: base tools, runtimes (`bun`, `python3`, `uv`), CLI tools (`gh`, `claude`, `codex`, `agy`, `gitleaks`), and desktop apps — installing what can be automated and clearly prompting for manual-only apps on macOS, Linux (Ubuntu/Debian), and Windows.
 
 ## Quick start
 

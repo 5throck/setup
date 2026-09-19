@@ -26,6 +26,7 @@
    └─ claude  (Claude Code CLI)
    └─ codex  (Codex CLI)
    └─ agy  (Antigravity CLI)
+   └─ gitleaks  (시크릿 스캐너)
 
 5. 데스크탑 앱
    └─ Google Chrome
@@ -161,6 +162,7 @@ bun setup-common.ts --json
 | **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
 | **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
+| **gitleaks** | 시크릿 스캐너 | `brew install gitleaks` | GitHub 릴리스 tarball | `winget Gitleaks.Gitleaks` |
 | **Google Chrome** | 브라우저 | `brew install --cask google-chrome` | `.deb` 직접 다운로드 | `winget Google.Chrome` |
 | **Claude Desktop** | Claude 데스크탑 앱 | `brew install --cask claude` | ⚠️ 수동 설치 | `winget Anthropic.Claude` |
 | **Codex Desktop** | Codex 데스크탑 앱 | DMG (자동, 서명 검증) | ⚠️ 미지원 (CLI 사용) | Microsoft Store (`winget` msstore) |

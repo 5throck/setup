@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-워크숍 실습을 위한 원샷 환경 설정 스크립트입니다. 기본 도구, 런타임(`bun`, `python3`, `uv`), CLI 도구(`gh`, `claude`, `codex`, `agy`), 데스크톱 앱을 macOS / Linux(Ubuntu·Debian) / Windows에서 자동 설치하거나, 자동화가 어려운 앱은 수동 설치 안내를 제공합니다.
+워크숍 실습을 위한 원샷 환경 설정 스크립트입니다. 기본 도구, 런타임(`bun`, `python3`, `uv`), CLI 도구(`gh`, `claude`, `codex`, `agy`, `gitleaks`), 데스크톱 앱을 macOS / Linux(Ubuntu·Debian) / Windows에서 자동 설치하거나, 자동화가 어려운 앱은 수동 설치 안내를 제공합니다.
 
 ## 빠른 시작
 

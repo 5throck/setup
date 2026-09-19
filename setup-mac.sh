@@ -91,14 +91,14 @@ for pkg in curl git gh; do
   if should_install "$pkg"; then
     run_step "Install $pkg" brew install "$pkg"
   else
-    printf "${GREEN}✅${NC}  $pkg ${DIM}(already installed)${NC}\n"
+    printf "${GREEN}✅${NC}  ${DIM}$(tool_version "$pkg") (already installed)${NC}\n"
   fi
 done
 
 if should_install gitleaks; then
   run_step "Install gitleaks" brew install gitleaks
 else
-  printf "${GREEN}✅${NC}  ${DIM}gitleaks $(gitleaks version) (already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version gitleaks) (already installed)${NC}\n"
 fi
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
@@ -132,7 +132,7 @@ if should_install claude; then
   run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code \
     || run_step "Install Claude Code CLI (npm fallback)" npm install -g @anthropic-ai/claude-code
 else
-  printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version claude) (already installed)${NC}\n"
 fi
 
 if should_install codex; then
@@ -140,13 +140,13 @@ if should_install codex; then
   # (no Node dependency); brew's bin dir is already on PATH via shellenv.
   run_step "Install Codex CLI" brew install --cask codex
 else
-  printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version codex) (already installed)${NC}\n"
 fi
 
 if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
-  printf "${GREEN}✅${NC}  agy ${DIM}(Antigravity CLI, already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version agy) (Antigravity CLI, already installed)${NC}\n"
 fi
 
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────
@@ -231,7 +231,7 @@ fi
 
 if [[ " $* " == *" --wezterm "* ]]; then
   if [[ -d "/Applications/WezTerm.app" ]]; then
-    printf "${GREEN}✅${NC}  WezTerm ${DIM}(already installed)${NC}\n"
+    printf "${GREEN}✅${NC}  ${DIM}$(tool_version wezterm) (already installed)${NC}\n"
   else
     run_step "Install WezTerm" brew install --cask wezterm
   fi

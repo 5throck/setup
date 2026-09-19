@@ -88,7 +88,9 @@ for pkg in curl git unzip; do installed "$pkg" || MISSING+=("$pkg"); done
 if [[ ${#MISSING[@]} -gt 0 ]]; then
   run_step "Install ${MISSING[*]}" sudo apt-get install -y -q "${MISSING[@]}"
 else
-  printf "${GREEN}✅${NC}  curl, git, unzip ${DIM}(already installed)${NC}\n"
+  for pkg in curl git unzip; do
+    printf "${GREEN}✅${NC}  ${DIM}$(tool_version "$pkg") (already installed)${NC}\n"
+  done
 fi
 
 if should_install gh; then
@@ -100,7 +102,7 @@ if should_install gh; then
     sudo apt-get update -q'
   run_step "Install gh" sudo apt-get install -y -q gh
 else
-  printf "${GREEN}✅${NC}  gh ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version gh) (already installed)${NC}\n"
 fi
 
 # gitleaks ships no official install script; apt doesn't carry it either, so
@@ -131,7 +133,7 @@ install_gitleaks() {
 if should_install gitleaks; then
   run_step "Install gitleaks" install_gitleaks
 else
-  printf "${GREEN}✅${NC}  ${DIM}gitleaks $(gitleaks version) (already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version gitleaks) (already installed)${NC}\n"
 fi
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
@@ -168,7 +170,7 @@ if should_install claude; then
     run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
   fi
 else
-  printf "${GREEN}✅${NC}  claude ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version claude) (already installed)${NC}\n"
 fi
 
 if should_install codex; then
@@ -178,13 +180,13 @@ if should_install codex; then
   run_step "Install Codex CLI" fetch_and_run https://chatgpt.com/codex/install.sh bash
   export PATH="$HOME/.local/bin:$PATH"
 else
-  printf "${GREEN}✅${NC}  codex ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version codex) (already installed)${NC}\n"
 fi
 
 if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
-  printf "${GREEN}✅${NC}  agy ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}$(tool_version agy) (already installed)${NC}\n"
 fi
 
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────
@@ -223,7 +225,7 @@ if [[ " $* " == *" --wezterm "* ]]; then
       sudo apt-get update -q'
     run_step "Install WezTerm" sudo apt-get install -y -q wezterm
   else
-    printf "${GREEN}✅${NC}  WezTerm ${DIM}(already installed)${NC}\n"
+    printf "${GREEN}✅${NC}  ${DIM}$(tool_version wezterm) (already installed)${NC}\n"
   fi
 fi
 

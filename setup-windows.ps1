@@ -624,7 +624,7 @@ if ($WezTerm) {
 }
 
 # ── 4. Git (+ Git Bash) + gh ──────────────────────────────────────────────────
-Section 4 $TOTAL "Git + Git Bash + gh"
+Section 4 $TOTAL "Git + Git Bash + gh + gitleaks"
 if ((-not $Force) -and (Installed git)) {
     Write-Host "✅  $(git --version) (already installed)" -ForegroundColor Green
 } else {
@@ -635,6 +635,12 @@ if ((-not $Force) -and (Installed gh)) {
     Write-Host "✅  $(gh --version | Select-Object -First 1) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "GitHub.cli" "Install GitHub CLI"
+    RefreshEnv
+}
+if ((-not $Force) -and (Installed gitleaks)) {
+    Write-Host "✅  gitleaks (already installed)" -ForegroundColor Green
+} else {
+    Install-WingetPackage "Gitleaks.Gitleaks" "Install gitleaks"
     RefreshEnv
 }
 if ($WSL2) {
@@ -832,12 +838,6 @@ if ((-not $Force) -and (Installed agy)) {
         Write-Host "❌  Antigravity CLI install failed" -ForegroundColor Red
         $Errors.Add("Install agy")
     }
-}
-if ((-not $Force) -and (Installed gitleaks)) {
-    Write-Host "✅  gitleaks (already installed)" -ForegroundColor Green
-} else {
-    Install-WingetPackage "Gitleaks.Gitleaks" "Install gitleaks"
-    RefreshEnv
 }
 
 # ── 9. Desktop apps ───────────────────────────────────────────────────────────

@@ -131,7 +131,7 @@ install_gitleaks() {
 if should_install gitleaks; then
   run_step "Install gitleaks" install_gitleaks
 else
-  printf "${GREEN}✅${NC}  gitleaks ${DIM}(already installed)${NC}\n"
+  printf "${GREEN}✅${NC}  ${DIM}gitleaks $(gitleaks version) (already installed)${NC}\n"
 fi
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────

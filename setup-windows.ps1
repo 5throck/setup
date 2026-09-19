@@ -638,7 +638,7 @@ if ((-not $Force) -and (Installed gh)) {
     RefreshEnv
 }
 if ((-not $Force) -and (Installed gitleaks)) {
-    Write-Host "✅  gitleaks (already installed)" -ForegroundColor Green
+    Write-Host "✅  gitleaks $(gitleaks version) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Gitleaks.Gitleaks" "Install gitleaks"
     RefreshEnv

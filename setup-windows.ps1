@@ -481,6 +481,14 @@ function ShouldInstall($cmd) {
     return (-not (Installed $cmd)) -or $Force
 }
 
+# First line of `<tool> --version`, falling back to the bare tool name when
+# the tool has no --version flag or the check fails — every "already
+# installed" message can call this without a per-tool special case.
+function Get-ToolVersion($cmd) {
+    $v = (& $cmd --version 2>$null | Select-Object -First 1)
+    if ($v) { return $v } else { return $cmd }
+}
+
 function Install-WingetPackage($Id, $Label) {
     # `winget install` exits nonzero when the package is already installed
     # ("use winget upgrade"), and `winget upgrade` exits nonzero when there is
@@ -617,7 +625,7 @@ if ((-not $Force) -and (Get-AppxPackage -Name Microsoft.WindowsTerminal -ErrorAc
 }
 if ($WezTerm) {
     if ((-not $Force) -and (Installed wezterm)) {
-        Write-Host "✅  WezTerm (already installed)" -ForegroundColor Green
+        Write-Host "✅  $(Get-ToolVersion wezterm) (already installed)" -ForegroundColor Green
     } else {
         Install-WingetPackage "wez.wezterm" "Install WezTerm"
     }
@@ -626,19 +634,19 @@ if ($WezTerm) {
 # ── 4. Git (+ Git Bash) + gh ──────────────────────────────────────────────────
 Section 4 $TOTAL "Git + Git Bash + gh + gitleaks"
 if ((-not $Force) -and (Installed git)) {
-    Write-Host "✅  $(git --version) (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(Get-ToolVersion git) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Git.Git" "Install Git for Windows"
     RefreshEnv
 }
 if ((-not $Force) -and (Installed gh)) {
-    Write-Host "✅  $(gh --version | Select-Object -First 1) (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(Get-ToolVersion gh) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "GitHub.cli" "Install GitHub CLI"
     RefreshEnv
 }
 if ((-not $Force) -and (Installed gitleaks)) {
-    Write-Host "✅  gitleaks $(gitleaks version) (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(Get-ToolVersion gitleaks) (already installed)" -ForegroundColor Green
 } else {
     Install-WingetPackage "Gitleaks.Gitleaks" "Install gitleaks"
     RefreshEnv
@@ -782,7 +790,7 @@ if ((-not $Force) -and (Installed uv)) {
 # ── 8. CLI tools ──────────────────────────────────────────────────────────────
 Section 8 $TOTAL "CLI tools"
 if ((-not $Force) -and (Installed claude)) {
-    Write-Host "✅  claude (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(Get-ToolVersion claude) (already installed)" -ForegroundColor Green
 } else {
     # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically.
     # Note: bun writes normal progress/warning output to stderr, which
@@ -817,7 +825,7 @@ if ((-not $Force) -and (Installed claude)) {
     }
 }
 if ((-not $Force) -and (Installed codex)) {
-    Write-Host "✅  codex (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(Get-ToolVersion codex) (already installed)" -ForegroundColor Green
 } else {
     # The npm bin is a Node.js launcher, so install the standalone native
     # build via winget instead (no Node dependency).
@@ -825,7 +833,7 @@ if ((-not $Force) -and (Installed codex)) {
     RefreshEnv
 }
 if ((-not $Force) -and (Installed agy)) {
-    Write-Host "✅  agy (already installed)" -ForegroundColor Green
+    Write-Host "✅  $(Get-ToolVersion agy) (already installed)" -ForegroundColor Green
 } else {
     $agyOk = Invoke-RemoteInstaller "https://antigravity.google/cli/install.ps1" {
         param($installerPath)

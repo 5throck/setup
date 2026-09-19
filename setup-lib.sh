@@ -89,6 +89,15 @@ should_install() {
   ! installed "$1" || [[ $FORCE -eq 1 ]]
 }
 
+# First line of `<tool> --version`, falling back to the bare tool name when
+# the tool has no --version flag or the check fails — every "already
+# installed" message can call this without a per-tool special case.
+tool_version() {
+  local v
+  v=$("$1" --version 2>/dev/null | head -n1)
+  [[ -n "$v" ]] && echo "$v" || echo "$1"
+}
+
 # Print the SHA-256 of a downloaded installer for auditability.
 print_sha256() {
   local sum

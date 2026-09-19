@@ -83,6 +83,7 @@ const tools: Tool[] = [
   { cmd: "claude", label: "claude",           required: true  },
   { cmd: "codex",  label: "codex",            required: true  },
   { cmd: "agy",    label: "agy (Antigravity)",required: true },
+  { cmd: "gitleaks",label: "gitleaks",        required: false },
 ];
 
 type Result = { tool: string; label: string; status: "ok" | "outdated" | "missing" | "optional"; version: string | null };

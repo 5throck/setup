@@ -26,6 +26,7 @@ Complete this setup **before** the workshop. The goal: when the session starts, 
    └─ claude  (Claude Code CLI)
    └─ codex  (Codex CLI)
    └─ agy  (Antigravity CLI)
+   └─ gitleaks  (secret scanner)
 
 5. Desktop Apps
    └─ Google Chrome
@@ -164,6 +165,7 @@ This prints a verification table of all installed tools, including minimum-versi
 | **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
 | **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
+| **gitleaks** | Secret scanner | `brew install gitleaks` | GitHub release tarball | `winget Gitleaks.Gitleaks` |
 | **Google Chrome** | Browser | `brew install --cask google-chrome` | `.deb` direct download | `winget Google.Chrome` |
 | **Claude Desktop** | Claude desktop app | `brew install --cask claude` | ⚠️ manual | `winget Anthropic.Claude` |
 | **Codex Desktop** | Codex desktop app | DMG (auto, signature-verified) | ⚠️ unavailable (CLI only) | Microsoft Store (`winget` msstore) |

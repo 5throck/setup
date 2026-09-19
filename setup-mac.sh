@@ -143,6 +143,12 @@ else
   printf "${GREEN}✅${NC}  agy ${DIM}(Antigravity CLI, already installed)${NC}\n"
 fi
 
+if should_install gitleaks; then
+  run_step "Install gitleaks" brew install gitleaks
+else
+  printf "${GREEN}✅${NC}  gitleaks ${DIM}(already installed)${NC}\n"
+fi
+
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────
 section 7 $TOTAL "Desktop apps"
 if [[ -d "/Applications/Google Chrome.app" ]]; then

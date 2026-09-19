@@ -103,6 +103,37 @@ else
   printf "${GREEN}✅${NC}  gh ${DIM}(already installed)${NC}\n"
 fi
 
+# gitleaks ships no official install script; apt doesn't carry it either, so
+# fetch the latest release tarball from GitHub and drop the binary on PATH.
+install_gitleaks() {
+  local arch tag tmp_dir tarball
+  case "$(uname -m)" in
+    x86_64)  arch="x64" ;;
+    aarch64) arch="arm64" ;;
+    *) echo "unsupported architecture for gitleaks: $(uname -m)"; return 1 ;;
+  esac
+  tag=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+  [[ -z "$tag" ]] && { echo "could not resolve latest gitleaks release"; return 1; }
+  tmp_dir=$(mktemp -d)
+  tarball="$tmp_dir/gitleaks.tar.gz"
+  if ! curl -fsSL --retry 3 --retry-delay 1 \
+      "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${tag#v}_linux_${arch}.tar.gz" \
+      -o "$tarball"; then
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+  print_sha256 "$tarball"
+  tar -xzf "$tarball" -C "$tmp_dir" gitleaks
+  sudo install -m 0755 "$tmp_dir/gitleaks" /usr/local/bin/gitleaks
+  rm -rf "$tmp_dir"
+}
+
+if should_install gitleaks; then
+  run_step "Install gitleaks" install_gitleaks
+else
+  printf "${GREEN}✅${NC}  gitleaks ${DIM}(already installed)${NC}\n"
+fi
+
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
 section 3 $TOTAL "Runtime: bun"
 install_bun "$HOME/.bashrc"
@@ -154,37 +185,6 @@ if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
   printf "${GREEN}✅${NC}  agy ${DIM}(already installed)${NC}\n"
-fi
-
-# gitleaks ships no official install script; apt doesn't carry it either, so
-# fetch the latest release tarball from GitHub and drop the binary on PATH.
-install_gitleaks() {
-  local arch tag tmp_dir tarball
-  case "$(uname -m)" in
-    x86_64)  arch="x64" ;;
-    aarch64) arch="arm64" ;;
-    *) echo "unsupported architecture for gitleaks: $(uname -m)"; return 1 ;;
-  esac
-  tag=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
-  [[ -z "$tag" ]] && { echo "could not resolve latest gitleaks release"; return 1; }
-  tmp_dir=$(mktemp -d)
-  tarball="$tmp_dir/gitleaks.tar.gz"
-  if ! curl -fsSL --retry 3 --retry-delay 1 \
-      "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${tag#v}_linux_${arch}.tar.gz" \
-      -o "$tarball"; then
-    rm -rf "$tmp_dir"
-    return 1
-  fi
-  print_sha256 "$tarball"
-  tar -xzf "$tarball" -C "$tmp_dir" gitleaks
-  sudo install -m 0755 "$tmp_dir/gitleaks" /usr/local/bin/gitleaks
-  rm -rf "$tmp_dir"
-}
-
-if should_install gitleaks; then
-  run_step "Install gitleaks" install_gitleaks
-else
-  printf "${GREEN}✅${NC}  gitleaks ${DIM}(already installed)${NC}\n"
 fi
 
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────

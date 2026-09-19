@@ -87,7 +87,7 @@ fi
 
 # ── 2. Base tools ─────────────────────────────────────────────────────────────
 section 2 $TOTAL "Base tools"
-for pkg in curl git gh; do
+for pkg in curl git gh gitleaks; do
   if should_install "$pkg"; then
     run_step "Install $pkg" brew install "$pkg"
   else
@@ -141,12 +141,6 @@ if should_install agy; then
   run_step "Install Antigravity CLI" fetch_and_run https://antigravity.google/cli/install.sh bash
 else
   printf "${GREEN}✅${NC}  agy ${DIM}(Antigravity CLI, already installed)${NC}\n"
-fi
-
-if should_install gitleaks; then
-  run_step "Install gitleaks" brew install gitleaks
-else
-  printf "${GREEN}✅${NC}  gitleaks ${DIM}(already installed)${NC}\n"
 fi
 
 # ── 7. Desktop apps ───────────────────────────────────────────────────────────

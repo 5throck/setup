@@ -26,6 +26,16 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 bun setup-common.ts
 ```
 
+### 또는 AI 에이전트에게 맡기기
+
+스크립트를 직접 실행하는 대신, AI 코딩 에이전트(Claude Code, Codex, Gemini CLI, Antigravity 등)에게 [`install.md`](install.md)를 따라 설치하도록 요청할 수 있습니다. 이 저장소 폴더에서 에이전트를 열고 다음과 같이 말하세요.
+
+```text
+install.md 를 읽고 설치해줘
+```
+
+에이전트가 OS를 판별해 알맞은 스크립트를 실행하고, 설치 중에는 시스템 언어(영어/한국어/일본어/스페인어)로 안내하며, 마지막에 `bun setup-common.ts`로 검증합니다. 로그인과 구독은 사용자가 직접 하며, 에이전트는 비밀번호나 토큰을 입력하지 않습니다. 설치 없이 미리 보려면 "드라이런"으로 요청하세요.
+
 전체 설치 흐름, 선택 플래그(`--wezterm`, `--docker`, `-WSL2`, `--force`), 트러블슈팅은 [`SETUP_ko.md`](SETUP_ko.md)를 참고하세요.
 
 ## 저장소 구성
@@ -34,6 +44,7 @@ bun setup-common.ts
 |---|---|
 | [`SETUP_ko.md`](SETUP_ko.md) | 전체 설치 가이드(설치 흐름, 플래그, 트러블슈팅) |
 | [`SETUP_CHECKLIST_ko.md`](SETUP_CHECKLIST_ko.md) | 워크숍 전 체크리스트(계정, 구독, 사전 요구사항) |
+| [`install.md`](install.md) | AI 에이전트(Claude Code, Codex 등)가 설치를 대신 진행하기 위한 단계별 실행 절차서 (드라이런 모드, 다국어 안내 포함) |
 | `setup-mac.sh` / `setup-linux.sh` | OS별 설치 스크립트 |
 | `setup-lib.sh` | mac/linux 스크립트가 공통으로 source하는 bash 헬퍼: 진행률 UI, 사전 점검, 로그 저장, `--force`, 정리(cleanup) |
 | `setup-windows.ps1` | Windows 설치 스크립트 (PowerShell) |

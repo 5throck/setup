@@ -26,6 +26,16 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 bun setup-common.ts
 ```
 
+### Or let an AI agent install it
+
+Instead of running the script yourself, you can ask an AI coding agent (Claude Code, Codex, Gemini CLI, Antigravity, …) to follow [`install.md`](install.md). Open the agent in this repository folder and say:
+
+```text
+Read install.md and install everything.
+```
+
+The agent detects your OS, runs the matching script, guides you in your system language (English / Korean / Japanese / Spanish) while it runs, and verifies with `bun setup-common.ts`. Logins and subscriptions stay with you — the agent never types passwords or tokens. To preview without changing anything, ask for a "dry-run".
+
 Full instructions, optional flags (`--wezterm`, `--docker`, `-WSL2`, `--force`), and troubleshooting live in [`SETUP.md`](SETUP.md).
 
 ## Repository layout
@@ -34,6 +44,7 @@ Full instructions, optional flags (`--wezterm`, `--docker`, `-WSL2`, `--force`),
 |---|---|
 | [`SETUP.md`](SETUP.md) | Full setup guide (installation flow, flags, troubleshooting) |
 | [`SETUP_CHECKLIST.md`](SETUP_CHECKLIST.md) | Pre-workshop checklist (accounts, subscriptions, prerequisites) |
+| [`install.md`](install.md) | Step-by-step runbook for AI agents (Claude Code, Codex, etc.) to run the installation for you, with dry-run mode and multilingual guidance |
 | `setup-mac.sh` / `setup-linux.sh` | OS-specific install scripts |
 | `setup-lib.sh` | Shared bash helpers (sourced by the mac/linux scripts): progress UI, preflight checks, logging, `--force`, cleanup |
 | `setup-windows.ps1` | Windows install script (PowerShell) |

@@ -76,4 +76,6 @@ $env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPol
 - **docs-sync** — `SETUP.md`에 문서화된 플래그가 스크립트와 일치하는지 확인
 - **shellcheck** — `setup-linux.sh` / `setup-mac.sh` / `setup-lib.sh` 린트
 - **linux-integration** — Ubuntu 컨테이너에서 `setup-linux.sh`를 실제로 실행한 뒤 `setup-common.ts --json`으로 검증
+- **macos-integration** — macOS(ARM) 러너에서 기본 bash 3.2로 `setup-mac.sh`를 실제로 실행한 뒤 `setup-common.ts --json`으로 검증
+- **windows-integration** — Windows 러너에서 `setup-windows.ps1`를 실제로 실행(Windows PowerShell 5.1로 기동해 PowerShell 7 자동 재실행 경로도 검증)한 뒤 `setup-common.ts --json`으로 검증
 - **windows-syntax-check** — `setup-windows.ps1`을 구문 파싱만 수행 (실행하지 않음)

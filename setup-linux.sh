@@ -5,7 +5,7 @@
 # See company_install_url in setup-lib.sh for supported names.
 #
 # Env overrides for reproducible installs: BUN_VERSION, UV_VERSION, PYTHON_VERSION
-# (default: latest). Example: BUN_VERSION=1.1.34 bash setup-linux.sh
+# (default: latest). Example: BUN_VERSION=1.4.5 bash setup-linux.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
 # (curl | bash) for bun, NodeSource, Codex CLI, and Antigravity CLI. This is
@@ -38,7 +38,7 @@ Options:
 
 Env overrides (default: latest):
   BUN_VERSION, UV_VERSION, PYTHON_VERSION
-  Example: BUN_VERSION=1.1.34 bash setup-linux.sh
+  Example: BUN_VERSION=1.4.5 bash setup-linux.sh
 EOF
   exit 0
 fi
@@ -53,9 +53,9 @@ if [[ $EUID -eq 0 ]]; then
 fi
 
 # ── sudo pre-auth ─────────────────────────────────────────────────────────────
-printf "${CYAN}🔑  sudo 권한이 필요합니다. 암호를 입력하세요:${NC}\n"
-sudo -v || { printf "${RED}❌  sudo 인증 실패. 스크립트를 종료합니다.${NC}\n"; exit 1; }
-# 스크립트 실행 중 sudo 세션이 만료되지 않도록 백그라운드에서 갱신
+printf "${CYAN}🔑  Administrator (sudo) access is required. Enter your password:${NC}\n"
+sudo -v || { printf "${RED}❌  sudo authentication failed. Exiting.${NC}\n"; exit 1; }
+# Refresh the sudo timestamp in the background so it doesn't expire mid-run
 ( while true; do sudo -n true; sleep 60; done ) &
 SUDO_KEEPALIVE_PID=$!
 
@@ -95,7 +95,7 @@ fi
 
 if should_install gh; then
   run_step "Add GitHub CLI repo" bash -c '
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    curl -fsSL --connect-timeout 10 --max-time 60 https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
       | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
@@ -114,11 +114,11 @@ install_gitleaks() {
     aarch64) arch="arm64" ;;
     *) echo "unsupported architecture for gitleaks: $(uname -m)"; return 1 ;;
   esac
-  tag=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+  tag=$(curl -fsSL --connect-timeout 10 --max-time 60 https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
   [[ -z "$tag" ]] && { echo "could not resolve latest gitleaks release"; return 1; }
   tmp_dir=$(mktemp -d)
   tarball="$tmp_dir/gitleaks.tar.gz"
-  if ! curl -fsSL --retry 3 --retry-delay 1 \
+  if ! curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 \
       "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${tag#v}_linux_${arch}.tar.gz" \
       -o "$tarball"; then
     rm -rf "$tmp_dir"
@@ -143,9 +143,19 @@ install_bun "$HOME/.bashrc"
 # ── 4. Runtime: python3 ───────────────────────────────────────────────────────
 section 4 $TOTAL "Runtime: python3"
 if should_install python3; then
-  PY_PKG="python3"
-  [[ "$PYTHON_VERSION" != "latest" ]] && PY_PKG="python${PYTHON_VERSION}"
-  run_step "Install $PY_PKG" sudo apt-get install -y -q "$PY_PKG" python3-pip python3-venv
+  PY_PKGS=(python3 python3-pip python3-venv)
+  if [[ "$PYTHON_VERSION" != "latest" ]]; then
+    # Distro repos only carry the versions Ubuntu/Debian ship (e.g. Ubuntu
+    # 24.04 has 3.12; 3.13 needs 24.10+ or the deadsnakes PPA). Fall back to
+    # the distro python3 instead of failing the whole run (parity with the
+    # macOS UV_VERSION caveat).
+    if apt-cache show "python${PYTHON_VERSION}" &>/dev/null; then
+      PY_PKGS=("python${PYTHON_VERSION}" python3-pip python3-venv)
+    else
+      printf "${YELLOW}⚠️ ${NC}  python%s is not in this distro's repos — installing distro python3 instead.\n" "$PYTHON_VERSION"
+    fi
+  fi
+  run_step "Install ${PY_PKGS[0]}" sudo apt-get install -y -q "${PY_PKGS[@]}"
 else
   printf "${GREEN}✅${NC}  ${DIM}$(python3 --version) (already installed)${NC}\n"
 fi
@@ -166,7 +176,7 @@ section 6 $TOTAL "CLI tools"
 if should_install claude; then
   if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
     run_step "Install Node.js (fallback)" bash -c \
-      'curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
+      'curl -fsSL --connect-timeout 10 --max-time 60 https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
     run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
   fi
 else
@@ -195,7 +205,7 @@ if installed google-chrome || installed google-chrome-stable; then
   printf "${GREEN}✅${NC}  Google Chrome ${DIM}(already installed)${NC}\n"
 else
   run_step "Download Chrome .deb" bash -c \
-    'curl -fsSL --retry 3 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb'
+    'curl -fsSL --retry 3 --connect-timeout 10 --max-time 600 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb'
   run_step "Install Google Chrome" bash -c \
     'sudo dpkg -i /tmp/chrome.deb || sudo apt-get install -f -y -q; rm -f /tmp/chrome.deb'
 fi
@@ -218,7 +228,7 @@ fi
 if [[ " $* " == *" --wezterm "* ]]; then
   if should_install wezterm; then
     run_step "Add WezTerm repo" bash -c '
-      curl -fsSL https://apt.fury.io/wez/gpg.key \
+      curl -fsSL --connect-timeout 10 --max-time 60 https://apt.fury.io/wez/gpg.key \
         | sudo gpg --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
       echo "deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *" \
         | sudo tee /etc/apt/sources.list.d/wezterm.list

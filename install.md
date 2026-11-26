@@ -17,7 +17,7 @@ Target repository (this folder = the install-script project):
 | `SETUP.md` / `SETUP_ko.md` | Detailed setup guide (flags, troubleshooting) |
 | `SETUP_CHECKLIST.md` / `SETUP_CHECKLIST_ko.md` | Pre-workshop checklist (accounts, subscriptions) |
 
-Tools installed: base tools (Git, PowerShell 7, Windows Terminal), runtimes (`bun`, `python3`, `uv`), CLIs (`gh`, `claude`, `codex`, `agy`, `gitleaks`), desktop apps (Chrome, Claude/Codex/Antigravity Desktop, Mark). Options: `--wezterm`, `--docker`, Windows `-WSL2`, and `--company <name>` for organizations.
+Tools installed: base tools (Git everywhere; PowerShell 7 + Windows Terminal on Windows), runtimes (`bun`, `python3`, `uv`), CLIs (`gh`, `claude`, `codex`, `agy`, `gitleaks`), desktop apps (Chrome, Claude/Codex/Antigravity Desktop, Mark). Options: `--wezterm`, `--docker`, Windows `-WSL2`, and `--company <name>` for organizations.
 
 > The commands and flags in this document must stay in sync with `SETUP.md`. If a flag in `SETUP.md` changes, update the matching parts of this document too (`check-docs-sync.sh` checks the SETUP documents for sync, but this document is maintained manually).
 
@@ -195,7 +195,7 @@ While the installation runs, I'll post progress every 30 seconds and walk you th
 ## 📘 Setup Guide 1/5 — What is being installed?
 ...
 
-🔧 [Install] ✅ Track A done (bun 1.1.34, uv 0.4.20, gh 2.x) → starting Track C   ← immediate notice
+🔧 [Install] ✅ Track A done (bun 1.4.5, uv 0.4.20, gh 2.x) → starting Track C   ← immediate notice
 
 ```
 🔧 Installing  A ✅ │ B ✅ │ C ⏳      elapsed 03:40
@@ -523,7 +523,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 Setup Guide 5/5 — Tips and where to learn more
 >
 > - Already-installed tools are skipped automatically. Use `--force` (`-Force` on Windows) only when you explicitly want a reinstall.
-> - For a reproducible environment, pin versions: `BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`.
+> - For a reproducible environment, pin versions: `BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`.
 > - Windows execution-policy error: launch with `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1` (see SETUP.md for the Group Policy case).
 > - Docs: `SETUP.md` (full guide), `SETUP_CHECKLIST.md` (pre-workshop checklist), `README.md` (repo overview). Korean translations: `SETUP_ko.md`, `SETUP_CHECKLIST_ko.md`.
 > - First thing to try: open a new terminal, run `claude`, and ask it to run `bun setup-common.ts` once more.
@@ -533,7 +533,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 사용법 안내 5/5 — 팁과 더 알아보기
 >
 > - 이미 설치된 도구는 자동으로 건너뜁니다. `--force`(Windows 는 `-Force`)는 재설치를 명시적으로 원할 때만 붙이세요.
-> - 재현 가능한 환경이 필요하면 버전을 고정합니다: `BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`.
+> - 재현 가능한 환경이 필요하면 버전을 고정합니다: `BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`.
 > - Windows 실행 정책 오류: `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1` 로 실행합니다 (그룹 정책 케이스는 SETUP.md 참조).
 > - 문서: `SETUP.md` (상세 가이드), `SETUP_CHECKLIST.md` (워크샵 전 체크리스트), `README.md` (저장소 개요). 한국어 번역: `SETUP_ko.md`, `SETUP_CHECKLIST_ko.md`.
 > - 첫 실습: 새 터미널을 열고 `claude` 를 실행한 뒤, `bun setup-common.ts` 를 다시 실행해 달라고 요청해 보세요.
@@ -543,7 +543,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 セットアップ案内 5/5 — ヒントと、さらに学ぶには
 >
 > - すでにインストール済みのツールは自動的にスキップされます。`--force`(Windows は `-Force`)は、再インストールを明示的に希望するときだけ付けてください。
-> - 再現可能な環境が必要なら、バージョンを固定します: `BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`。
+> - 再現可能な環境が必要なら、バージョンを固定します: `BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`。
 > - Windows の実行ポリシーエラー: `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1` で起動します(グループポリシーの場合は SETUP.md を参照)。
 > - ドキュメント: `SETUP.md`(詳細ガイド)、`SETUP_CHECKLIST.md`(ワークショップ前チェックリスト)、`README.md`(リポジトリ概要)。韓国語訳: `SETUP_ko.md`、`SETUP_CHECKLIST_ko.md`。
 > - 最初に試すこと: 新しいターミナルを開いて `claude` を起動し、`bun setup-common.ts` をもう一度実行するよう頼んでみてください。
@@ -553,7 +553,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 Guía de uso 5/5 — Consejos y dónde aprender más
 >
 > - Las herramientas ya instaladas se omiten automáticamente. Usa `--force` (`-Force` en Windows) solo cuando quieras reinstalar de forma explícita.
-> - Para un entorno reproducible, fija las versiones: `BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`.
+> - Para un entorno reproducible, fija las versiones: `BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh`.
 > - Error de política de ejecución en Windows: lanza con `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1` (el caso de directiva de grupo está en SETUP.md).
 > - Documentación: `SETUP.md` (guía completa), `SETUP_CHECKLIST.md` (checklist previo al taller), `README.md` (resumen del repositorio). Traducciones al coreano: `SETUP_ko.md`, `SETUP_CHECKLIST_ko.md`.
 > - Primera prueba: abre una terminal nueva, ejecuta `claude` y pídele que ejecute `bun setup-common.ts` una vez más.
@@ -620,16 +620,16 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ### 4-5. Version pinning (only when the user asks)
 
-> `PYTHON_VERSION` is macOS/Linux only (Windows is fixed to `winget Python.Python.3.13`). On macOS, Homebrew installs the latest uv, so `UV_VERSION` only prints a warning and is not pinned.
+> `PYTHON_VERSION` is macOS/Linux only (Windows is fixed to `winget Python.Python.3.13`). On macOS, Homebrew installs the latest uv, so `UV_VERSION` only prints a warning and is not pinned. On Linux, `PYTHON_VERSION` falls back to the distro `python3` with a warning when the requested version is not in the distro's repositories; on macOS the pinned formula installs as `python3.x`, so `python3` may still resolve to the Apple CLT interpreter. By default the scripts resolve bun's latest release tag up front and install that exact tag. Pins apply to fresh installs — an already-installed `bun` is upgraded to the latest regardless, and an already-installed `uv`/`python` is left as-is.
 
 ```bash
 # macOS / Linux
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
+BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
 # Windows
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+$env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ### Verify (Track A)

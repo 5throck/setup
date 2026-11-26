@@ -129,14 +129,16 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 By default the scripts install the latest release of `bun` and `uv`; macOS/Linux also support pinning `python3` via `PYTHON_VERSION`. Windows installs Python via `winget Python.Python.3.13`. For reproducible workshop environments, pin supported versions via environment variables before running:
 
+> Notes: by default the scripts resolve bun's latest release tag up front and install that exact tag. Pins apply to fresh installs — an already-installed `bun` is upgraded to the latest regardless, and an already-installed `uv`/`python` is left as-is. On Linux, `PYTHON_VERSION` falls back to the distro `python3` with a warning when the requested version is not in the distro's repositories; on macOS, the pinned formula installs as `python3.x`, so `python3` may still resolve to the Apple CLT interpreter.
+
 ```bash
 # macOS / Linux
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
+BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
 # Windows
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+$env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ---

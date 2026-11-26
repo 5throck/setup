@@ -12,7 +12,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 #
 # Env overrides for reproducible installs: $env:BUN_VERSION, $env:UV_VERSION
-# (default: latest). Example: $env:BUN_VERSION="1.1.34"; .\setup-windows.ps1
+# (default: latest). Example: $env:BUN_VERSION="1.4.5"; .\setup-windows.ps1
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
 # for bun, uv, and Antigravity CLI. This is the standard official install
@@ -79,7 +79,7 @@ Options:
 
 Env overrides (default: latest):
   `$env:BUN_VERSION, `$env:UV_VERSION
-  Example: `$env:BUN_VERSION="1.1.34"; .\setup-windows.ps1
+  Example: `$env:BUN_VERSION="1.4.5"; .\setup-windows.ps1
 "@
     exit 0
 }
@@ -96,7 +96,7 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
         $downloaded = $false
         for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
                 $downloaded = $true
             } catch {
                 if ($attempt -ge 3) { throw }
@@ -151,7 +151,7 @@ function Install-ChromeDirect {
             $downloaded = $false
             for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
                 try {
-                    Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $msi -UseBasicParsing -ErrorAction Stop
+                    Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $msi -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
                     $downloaded = $true
                 } catch {
                     if ($attempt -ge 3) { throw }
@@ -186,7 +186,7 @@ try {
     Start-Transcript -Path $LogFile -Append -ErrorAction Stop | Out-Null
     $transcriptStarted = $true
 } catch {
-    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (trans 실패): $_" -ForegroundColor Yellow
+    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (transcript 실패): $_" -ForegroundColor Yellow
     $transcriptStarted = $false
 }
 
@@ -383,12 +383,18 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
         & $userBlock @innerArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     } -ArgumentList ($block.ToString()), $blockArgs, $env:PATH
-    $i   = 0
-    while ($job.State -eq 'Running') {
-        $ch = $SpinChars[$i % $SpinChars.Count]
-        Write-Host ("`r  $ch  $label") -NoNewline -ForegroundColor Cyan
-        $i++
-        Start-Sleep -Milliseconds 80
+    # Spinner only when attached to a real console: \r frames become thousands
+    # of duplicate lines in redirected output (CI logs).
+    if (-not [Console]::IsOutputRedirected) {
+        $i   = 0
+        while ($job.State -eq 'Running') {
+            $ch = $SpinChars[$i % $SpinChars.Count]
+            Write-Host ("`r  $ch  $label") -NoNewline -ForegroundColor Cyan
+            $i++
+            Start-Sleep -Milliseconds 80
+        }
+    } else {
+        Wait-Job $job | Out-Null
     }
     $output = @(Receive-Job $job -Wait -ErrorAction SilentlyContinue 2>&1 |
                 ForEach-Object { $_.ToString() } | Where-Object { $_.Trim() })
@@ -431,7 +437,7 @@ function Invoke-QuietRemoteInstaller($Label, $Url) {
         $downloaded = $false
         for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
                 $downloaded = $true
             } catch {
                 if ($attempt -ge 3) { throw }
@@ -447,12 +453,16 @@ function Invoke-QuietRemoteInstaller($Label, $Url) {
             -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tmp) `
             -NoNewWindow -PassThru `
             -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-        $i = 0
-        while (-not $proc.HasExited) {
-            $ch = $SpinChars[$i % $SpinChars.Count]
-            Write-Host ("`r  $ch  $Label") -NoNewline -ForegroundColor Cyan
-            $i++
-            Start-Sleep -Milliseconds 80
+        if (-not [Console]::IsOutputRedirected) {
+            $i = 0
+            while (-not $proc.HasExited) {
+                $ch = $SpinChars[$i % $SpinChars.Count]
+                Write-Host ("`r  $ch  $Label") -NoNewline -ForegroundColor Cyan
+                $i++
+                Start-Sleep -Milliseconds 80
+            }
+        } else {
+            $proc.WaitForExit()
         }
         $ok = ($proc.ExitCode -eq 0)
         if ($ok) {
@@ -686,10 +696,21 @@ if ((-not $Force) -and (Installed bun)) {
     }
 }
 if ((-not (Installed bun)) -or $Force) {
+    # Resolve the latest release tag up front so the installed version is
+    # explicit and logged (parity with the bash scripts' resolve_latest_bun_tag);
+    # fall back to install.ps1's own "latest" resolution if the API is
+    # unavailable or rate-limited.
+    $bunPin = $BunVersion
+    if ($bunPin -eq "latest") {
+        try {
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/oven-sh/bun/releases/latest" -UseBasicParsing -TimeoutSec 10
+            if ($rel.tag_name) { $bunPin = $rel.tag_name }
+        } catch { }
+    }
     # Full install: use npm fallback when PS 5.1 cannot download bun.sh/install.ps1
     $bunInstallOk = Invoke-RemoteInstaller "https://bun.sh/install.ps1" {
         param($installerPath)
-        if ($BunVersion -ne "latest") { & $installerPath $BunVersion } else { & $installerPath }
+        if ($bunPin -ne "latest") { & $installerPath $bunPin } else { & $installerPath }
     }
     if (-not $bunInstallOk) {
         Write-Host "     Falling back to npm-based install..." -ForegroundColor Yellow

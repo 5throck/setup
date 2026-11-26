@@ -8,6 +8,11 @@ CYAN='\033[0;36m';  BOLD='\033[1m';      DIM='\033[2m';  NC='\033[0m'
 
 # ── Animation helpers ─────────────────────────────────────────────────────────
 SPIN='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+# Whether stdout was an interactive terminal at startup. Captured here, not
+# in run_step: init_logging redirects stdout through tee before any step
+# runs, which would make a later [[ -t 1 ]] always false and silently kill
+# the spinner in real terminals too.
+SPIN_TTY=0; [[ -t 1 ]] && SPIN_TTY=1
 ERRORS=()
 BG_PIDS=()
 
@@ -33,7 +38,7 @@ while [ $_i -lt ${#_args[@]} ]; do
 done
 unset _args _i
 
-# ── Version pins (override via env, e.g. BUN_VERSION=1.1.34 bash setup-linux.sh) ──
+# ── Version pins (override via env, e.g. BUN_VERSION=1.4.5 bash setup-linux.sh) ──
 BUN_VERSION="${BUN_VERSION:-latest}"
 UV_VERSION="${UV_VERSION:-latest}"
 PYTHON_VERSION="${PYTHON_VERSION:-latest}"
@@ -59,12 +64,17 @@ run_step() {
   local pid=$!
   BG_PIDS+=("$pid")
 
-  while kill -0 "$pid" 2>/dev/null; do
-    local ch="${SPIN:$(( i % ${#SPIN} )):1}"
-    printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"
-    i=$(( i + 1 ))
-    sleep 0.08
-  done
+  # Animated spinner only on a real terminal: frames are written with \r,
+  # which redirected consumers (CI logs, pipes) render as thousands of
+  # duplicate lines.
+  if [[ $SPIN_TTY -eq 1 ]]; then
+    while kill -0 "$pid" 2>/dev/null; do
+      local ch="${SPIN:$(( i % ${#SPIN} )):1}"
+      printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"
+      i=$(( i + 1 ))
+      sleep 0.08
+    done
+  fi
 
   wait "$pid"; local rc=$?
   # Trailing spaces overwrite spinner residue: ✅/❌ render one display cell
@@ -95,14 +105,20 @@ should_install() {
 # no --version flag or the check fails. Every "already installed" message
 # can call this without a per-tool special case.
 tool_version() {
-  local v
+  local v lower
   v=$("$1" --version 2>/dev/null | head -n1)
   if [[ -z "$v" ]]; then
     echo "$1"
-  elif [[ "${v,,}" == "$1"* ]]; then
-    echo "$v"
   else
-    echo "$1 $v"
+    # Lowercase via tr: ${v,,} needs bash 4, but macOS ships bash 3.2 (see
+    # company_install_url). git/gh bake their name into the output; claude/agy
+    # print a bare number.
+    lower=$(printf '%s' "$v" | tr '[:upper:]' '[:lower:]')
+    if [[ "$lower" == "$1"* ]]; then
+      echo "$v"
+    else
+      echo "$1 $v"
+    fi
   fi
 }
 
@@ -120,7 +136,7 @@ fetch_and_run() {
   local url="$1"; shift
   local runner=("$@")
   local tmp; tmp=$(mktemp)
-  if ! curl -fsSL --retry 3 --retry-delay 1 "$url" -o "$tmp"; then
+  if ! curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 "$url" -o "$tmp"; then
     rm -f "$tmp"
     return 1
   fi
@@ -172,6 +188,14 @@ update_bun() {
   rm -f "$tmplog"
 }
 
+# Latest bun release tag from the GitHub API (e.g. "bun-v1.4.5"); empty when
+# unreachable or rate-limited — callers fall back to the installer's own
+# "latest" resolution.
+resolve_latest_bun_tag() {
+  curl -fsSL --max-time 10 https://api.github.com/repos/oven-sh/bun/releases/latest 2>/dev/null \
+    | grep -m1 '"tag_name"' | cut -d'"' -f4
+}
+
 # Install bun via the official installer, or `bun upgrade` when already present
 # (parity with setup-windows.ps1). Accepts shell rc file paths as arguments;
 # a PATH export line is appended to each (idempotent).
@@ -182,12 +206,30 @@ install_bun() {
     export PATH="$HOME/.bun/bin:$PATH"
   else
     local tmp; tmp=$(mktemp)
-    if curl -fsSL --retry 3 --retry-delay 1 https://bun.sh/install -o "$tmp"; then
+    if curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 https://bun.sh/install -o "$tmp"; then
       print_sha256 "$tmp"
       if [[ "$BUN_VERSION" != "latest" ]]; then
-        run_step "Install bun ($BUN_VERSION)" bash "$tmp" "$BUN_VERSION"
+        # The installer uses its first argument verbatim as the GitHub release
+        # tag, so accept "1.1.34" / "v1.1.34" and normalize to "bun-v1.1.34"
+        # (parity with install.ps1, which does the same normalization).
+        local pin="$BUN_VERSION"
+        case "$pin" in
+          bun-v*) ;;
+          v*)     pin="bun-$pin" ;;
+          *)      pin="bun-v$pin" ;;
+        esac
+        run_step "Install bun ($BUN_VERSION)" bash "$tmp" "$pin"
       else
-        run_step "Install bun (latest)" bash "$tmp"
+        # Resolve the latest tag up front so the installed version is explicit
+        # and logged (same pattern as install_gitleaks); the installer's own
+        # "latest" resolution is the fallback when the API is unavailable.
+        local latest_tag
+        latest_tag=$(resolve_latest_bun_tag)
+        if [[ -n "$latest_tag" ]]; then
+          run_step "Install bun ($latest_tag)" bash "$tmp" "$latest_tag"
+        else
+          run_step "Install bun (latest)" bash "$tmp"
+        fi
       fi
     else
       printf "${RED}❌${NC}  Failed to download bun installer\n"

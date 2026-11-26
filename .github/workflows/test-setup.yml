@@ -31,9 +31,9 @@ on:
       - ".github/workflows/test-setup.yml"
 
 # Pushing a branch with an open PR fires this workflow twice for the same
-# commit (push + pull_request events), doubling every run — and linux-dry-run
-# is a full install. Key the group on the head branch so the newer of the two
-# cancels the older instead of both queueing full installs.
+# commit (push + pull_request events), doubling every run — and
+# linux-integration is a full install. Key the group on the head branch so
+# the newer of the two cancels the older instead of both queueing installs.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
@@ -58,14 +58,24 @@ jobs:
           sudo apt-get install -y -q shellcheck
           shellcheck -S warning setup-linux.sh setup-mac.sh setup-lib.sh
 
-  linux-dry-run:
+  linux-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: ubuntu:24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install sudo and curl (base image lacks them)
-        run: apt-get update -q && apt-get install -y -q sudo curl
+        # security.ubuntu.com occasionally serves a mid-sync Packages index
+        # ("File has unexpected size ... Mirror sync in progress?") and apt
+        # exits 100 — retry a few times before giving up.
+        run: |
+          ok=false
+          for i in 1 2 3; do
+            if apt-get update -q; then ok=true; break; fi
+            sleep 15
+          done
+          [ "$ok" = true ] || { echo "apt-get update failed after 3 attempts"; exit 1; }
+          apt-get install -y -q sudo curl
       - name: Create non-root user
         run: |
           useradd -m -s /bin/bash runner

@@ -164,7 +164,7 @@ This prints a verification table of all installed tools, including minimum-versi
 | **gh** | GitHub CLI | `brew install gh` | apt (official repo) | `winget GitHub.cli` |
 | **python3** | Python runtime | `brew install python3` | `apt install python3` | `winget Python.Python.3.13` |
 | **uv** | Python package manager | `brew install uv` | `astral.sh/uv/install.sh` | `winget astral-sh.uv` |
-| **claude** | Claude Code CLI | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` | `bun install -g @anthropic-ai/claude-code` |
+| **claude** | Claude Code CLI | native installer `claude.ai/install.sh` (bun/npm fallback) | native installer `claude.ai/install.sh` (bun/npm fallback) | native installer `claude.ai/install.ps1` (bun/npm fallback) |
 | **codex** | Codex CLI | `brew install --cask codex` | `chatgpt.com/codex/install.sh` | `winget OpenAI.Codex` |
 | **agy** | Antigravity CLI | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.sh` | `antigravity.google/cli/install.ps1` |
 | **gitleaks** | Secret scanner | `brew install gitleaks` | GitHub release tarball | `winget Gitleaks.Gitleaks` |
@@ -209,8 +209,8 @@ Restart your terminal. On Windows, bun is automatically registered in the User P
 export PATH="$HOME/.bun/bin:$PATH"
 ```
 
-**`claude: command not found` after `bun install -g`**
-The script automatically retries with npm fallback if bun fails. If issues persist, check `bun pm ls -g` and add the bin dir to PATH.
+**`claude: command not found` after install**
+The scripts install Claude Code via Anthropic's native installer (the recommended path); bun and npm are automatic fallbacks (on Linux Node.js is installed from NodeSource first if npm is missing). Restart your terminal so PATH picks up `~/.local/bin`.
 
 **`codex: command not found` after install**
 The scripts install the standalone codex binary (brew cask on macOS, official installer on Linux, winget on Windows) — no Node.js required. Restart your terminal so PATH picks up `~/.local/bin` (Linux) or the winget links dir (Windows).

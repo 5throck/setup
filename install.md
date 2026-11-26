@@ -1,310 +1,310 @@
-# install.md — Workshop Setup 자동 설치 가이드 (AI 에이전트용)
+# install.md — Workshop Setup Automated Install Guide (for AI agents)
 
-> **이 파일을 읽는 AI(Claude Code / Codex / Gemini CLI / Antigravity 등)에게**
-> 이 문서는 사용자가 "install.md 를 읽고 설치해줘" 라고 요청했을 때 따라야 할 **실행 절차서**입니다.
-> 위에서 아래로 순서대로 수행하고, 각 단계의 **검증(Verify)** 이 통과해야 다음 단계로 넘어가세요.
-> 사용자에게 보여줄 **안내 언어는 §3-0 에 따라 설치되는 시스템의 언어 설정에서 판별**합니다.
-> 지원 언어는 **영어 / 한국어 / 일본어 / 스페인어**이며, 해당되는 언어가 없거나 판별에 실패하면 **영어**로 안내합니다.
+> **To the AI reading this file (Claude Code / Codex / Gemini CLI / Antigravity, etc.)**
+> This document is the **runbook** to follow when the user asks "read install.md and install everything".
+> Work from top to bottom, and only move to the next step once the **Verify** check of the current step passes.
+> The **language of messages shown to the user is determined in §3-0 from the language settings of the system being installed**.
+> Supported languages are **English / Korean / Japanese / Spanish**. If none applies, or detection fails, use **English**.
 
-대상 저장소 (이 폴더 = 설치 스크립트 프로젝트):
+Target repository (this folder = the install-script project):
 
-| 구성 요소 | 용도 |
+| Component | Purpose |
 |---|---|
-| `setup-mac.sh` / `setup-linux.sh` | macOS / Linux (Ubuntu·Debian) 자동 설치 스크립트 |
-| `setup-windows.ps1` | Windows 자동 설치 스크립트 (PowerShell 7+ 필요, 5.1 이면 자동 재실행) |
-| `setup-lib.sh` | mac/linux 공용 헬퍼 (진행 UI, 사전 점검, 로그, `--force`, 정리) |
-| `setup-common.ts` | 설치 후 교차 플랫폼 검증 스크립트 (`bun setup-common.ts`) |
-| `SETUP.md` / `SETUP_ko.md` | 상세 설치 안내 (플래그, 문제 해결) |
-| `SETUP_CHECKLIST.md` / `SETUP_CHECKLIST_ko.md` | 워크샵 전 준비물 체크리스트 (계정·구독) |
+| `setup-mac.sh` / `setup-linux.sh` | Automated install scripts for macOS / Linux (Ubuntu·Debian) |
+| `setup-windows.ps1` | Automated install script for Windows (requires PowerShell 7+; relaunches itself if run under 5.1) |
+| `setup-lib.sh` | Shared mac/linux helpers (progress UI, preflight checks, logging, `--force`, cleanup) |
+| `setup-common.ts` | Cross-platform post-install verification script (`bun setup-common.ts`) |
+| `SETUP.md` / `SETUP_ko.md` | Detailed setup guide (flags, troubleshooting) |
+| `SETUP_CHECKLIST.md` / `SETUP_CHECKLIST_ko.md` | Pre-workshop checklist (accounts, subscriptions) |
 
-설치 대상 도구: 기본 도구(Git, PowerShell 7, Windows Terminal), 런타임(`bun`, `python3`, `uv`), CLI(`gh`, `claude`, `codex`, `agy`, `gitleaks`), 데스크톱 앱(Chrome, Claude/Codex/Antigravity Desktop, Mark). 옵션으로 `--wezterm`, `--docker`, Windows `-WSL2`, 조직용 `--company <name>`.
+Tools installed: base tools (Git, PowerShell 7, Windows Terminal), runtimes (`bun`, `python3`, `uv`), CLIs (`gh`, `claude`, `codex`, `agy`, `gitleaks`), desktop apps (Chrome, Claude/Codex/Antigravity Desktop, Mark). Options: `--wezterm`, `--docker`, Windows `-WSL2`, and `--company <name>` for organizations.
 
-> 이 문서의 명령·플래그는 `SETUP.md` 와 동기화가 유지되어야 합니다. `SETUP.md` 의 플래그가 바뀌면 이 문서의 해당 부분도 함께 갱신하세요 (`check-docs-sync.sh` 가 SETUP 문서의 동기화는 검사하지만, 이 문서는 수동 유지보수 대상입니다).
-
----
-
-## 0. 실행 원칙 (반드시 지킬 것)
-
-1. **설치는 서브 에이전트에 위임**합니다 (아래 §2). 메인 에이전트는 사용자와의 대화·안내·진행 보고만 담당합니다.
-2. **설치가 오래 걸리므로** 서브 에이전트가 일하는 동안 메인 에이전트는 §3 의 **사용자 안내**를 전달합니다. 서브 에이전트 완료를 멍하니 기다리지 마세요.
-3. **안내 언어는 §3-0 으로 한 번 판별**하고, 사용자에게 나가는 모든 메시지(안내·상태바 제목·보고)에 그 언어를 적용합니다. 서브 에이전트의 보고 언어는 자유이지만, 메인 에이전트가 사용자에게 전달할 때는 판별된 언어로 옮깁니다.
-4. **비밀값 금지**: 비밀번호, API 키, 토큰을 대신 입력하거나 추측하지 마세요. 로그인(`gh auth login`, `claude login`, `codex login`)과 구독 확인은 **사용자가 직접** 합니다. sudo/관리자 비밀번호 입력 창이 뜨면 사용자가 직접 입력하도록 안내합니다.
-5. **관리자/sudo 권한이 필요한 단계**는 실행 전에 사용자에게 알리고 확인을 받으세요. 권한이 없으면 해당 단계를 건너뛰고 보고합니다.
-6. **멱등성**: 이미 설치된 도구는 건너뜁니다(`command -v` / `Get-Command` 로 확인). 스크립트 자체도 설치된 항목을 스킵하지만, 강제 재설치(`--force`/`-Force`)는 사용자가 요청할 때만 붙입니다. 재실행해도 안전해야 합니다.
-7. **`curl | bash` / `irm | iex` 금지**: 설치 스크립트는 임시 파일로 내려받아 SHA-256 을 출력·기록한 뒤 실행합니다 (본 저장소의 각 스크립트도 이 방식을 따릅니다. 기대 해시와 자동 비교는 하지 않으므로 감사용 기록입니다). 이 문서의 명령을 임의로 파이프 형태로 바꾸지 마세요.
-8. **버전 핀은 사용자가 요청할 때만**: 기본은 최신 릴리스를 설치합니다. 재현 가능한 환경이 필요하다고 사용자가 밝히면 `BUN_VERSION` / `UV_VERSION` / `PYTHON_VERSION` 환경변수를 사용합니다 (§4-5). `PYTHON_VERSION` 은 macOS/Linux 전용이며(Windows 는 Python 3.13 고정 설치), macOS 의 `UV_VERSION` 은 Homebrew 가 최신 uv 를 설치하므로 완전한 핀이 아닙니다.
-9. **드라이런 요청 시 §0-1 을 최우선**으로 따르며 어떤 것도 변경하지 않습니다.
-10. 실패 시 로그를 남기고 다음 독립 작업은 계속 진행한 뒤, 마지막에 실패 목록을 한 번에 보고합니다.
-
-로그 위치: `~/workshop-setup-logs/` (Windows: `%USERPROFILE%\workshop-setup-logs\`)
+> The commands and flags in this document must stay in sync with `SETUP.md`. If a flag in `SETUP.md` changes, update the matching parts of this document too (`check-docs-sync.sh` checks the SETUP documents for sync, but this document is maintained manually).
 
 ---
 
-## 0-1. 드라이런(Dry-run) 모드 — 설치하지 않고 진행 과정만 미리 보기
+## 0. Execution principles (must follow)
 
-사용자가 **"드라이런", "dry-run", "시뮬레이션", "설치하지 말고 어떻게 되는지만 보여줘"** 등으로 요청하면 이 모드로 진행합니다. 요청이 없으면 일반 설치 모드입니다. 모호하면(예: "한번 해봐줘") 어느 모드인지 사용자에게 물어보세요.
+1. **Delegate the installation to sub-agents** (§2 below). The main agent only handles conversation, guidance, and progress reports with the user.
+2. **Because installation takes a long time**, the main agent delivers the **user guidance** from §3 while the sub-agents work. Do not just idly wait for the sub-agents to finish.
+3. **Determine the guidance language once via §3-0**, and apply it to every message going out to the user (guidance, status bar titles, reports). Sub-agents may report in any language, but the main agent translates into the detected language when relaying to the user.
+4. **No secrets**: never type or guess passwords, API keys, or tokens on the user's behalf. Logins (`gh auth login`, `claude login`, `codex login`) and subscription checks are done **by the user personally**. If a sudo/administrator password prompt appears, tell the user to enter it themselves.
+5. **Steps that need administrator/sudo privileges**: tell the user before running them and get confirmation. If privileges are unavailable, skip that step and report it.
+6. **Idempotency**: skip tools that are already installed (check with `command -v` / `Get-Command`). The scripts themselves also skip installed items, but add forced reinstall (`--force`/`-Force`) only when the user asks for it. Re-running must be safe.
+7. **No `curl | bash` / `irm | iex`**: installer scripts are downloaded to a temporary file, their SHA-256 is printed and logged, and then they are executed (each script in this repository follows the same approach; there is no automatic comparison against an expected hash, so the hash is an audit record). Do not arbitrarily rewrite commands in this document into piped form.
+8. **Pin versions only when the user asks**: by default, install the latest release. If the user says they need a reproducible environment, use the `BUN_VERSION` / `UV_VERSION` / `PYTHON_VERSION` environment variables (§4-5). `PYTHON_VERSION` is macOS/Linux only (Windows installs Python 3.13 as a fixed version), and `UV_VERSION` on macOS is not a full pin because Homebrew installs the latest uv.
+9. **On a dry-run request, follow §0-1 with top priority** and change nothing.
+10. On failure, record the log, continue with the next independent task, and report the list of failures all at once at the end.
 
-> 이 저장소의 스크립트에는 문서화된 드라이런 플래그가 없습니다 (`SETUP.md` 기준). 드라이런은 **에이전트가 절차 수준에서만 시연**합니다.
-
-### 드라이런에서 **하는 것**
-
-- §1 사전 점검의 **읽기 전용** 명령 (OS 판별, `--version`/`command -v`/`Get-Command`, 디스크 여부, `SETUP_CHECKLIST.md` 확인)
-- §3-0 안내 언어 판별 (읽기 전용 — 실제로 안내도 동일하게 진행)
-- 각 트랙에서 **실제로 실행했을 명령 목록**을 현재 OS·스캔 결과에 맞춰 출력 (이미 설치된 것은 `SKIP`, 없는 것은 `WOULD RUN`)
-- §3 사용자 안내를 **실제 설치와 동일하게** 진행 (안내 흐름을 체험하게 하는 것이 목적)
-- §7 형식의 **예상 결과 리포트** (모든 상태에 `[DRY-RUN]` 표시)
-
-### 드라이런에서 **절대 하지 않는 것**
-
-- 설치/업데이트/삭제 명령 (`brew install`, `apt`, `winget install`, `bun install -g`, `wsl --install` 등)
-- OS 설치 스크립트 실행 (`bash setup-mac.sh`, `.\setup-windows.ps1` 등 — 실행 자체가 시스템을 변경함)
-- 원격 스크립트 다운로드 (bun/uv/Codex/Antigravity 설치 스크립트 포함 — 내려받기만 해도 하지 않음)
-- 관리자/sudo 권한 요청, 로그인 명령
-- 로그 폴더·파일 생성 (`~/workshop-setup-logs/` 생성 포함)
-
-> 판단이 애매한 명령은 실행하지 말고 "실행 예정"으로만 표기하세요. 드라이런이 시스템에 남기는 흔적은 **0** 이어야 합니다.
-
-### 서브 에이전트 프롬프트에 추가할 문구
-
-```
-모드: DRY-RUN. 읽기 전용 도구만 사용하고, 시스템/파일을 변경하는 명령은 실행하지 말 것.
-각 단계를 "[DRY-RUN] SKIP(이미 설치: <버전>)" 또는 "[DRY-RUN] WOULD RUN: <명령>" 형식으로 보고.
-예상 소요 시간과 사용자가 해야 할 일(권한, 로그인, 구독)도 함께 보고.
-```
-
-### 출력 형식
-
-트랙별로 다음 형태를 사용합니다.
-
-```
-[DRY-RUN] 트랙 A — OS 설치 스크립트 (예상 10~30분)
-  SKIP         git 2.45.0 (이미 설치)
-  WOULD RUN    bash setup-mac.sh            # 관리자/sudo 권한 필요
-  USER ACTION  새 터미널 열기 (PATH 반영)
-```
-
-마지막에 요약합니다.
-
-```
-## [DRY-RUN] 예상 결과 — <OS>
-설치 예정 N개 / 건너뜀 M개 / 수동 설치 K개 / 사용자 작업 J개 / 예상 총 소요 시간 약 XX분
-변경된 것: 없음
-실제로 설치하려면: "install.md 를 읽고 설치해줘" (드라이런 언급 없이)
-```
-
-예상 소요 시간은 대략치이며(네트워크에 따라 크게 달라짐) 보증하지 않는다는 점을 한 줄 덧붙이세요.
+Log location: `~/workshop-setup-logs/` (Windows: `%USERPROFILE%\workshop-setup-logs\`)
 
 ---
 
-## 0-2. 출력 구분 규칙과 업데이트 주기 (상태 30초 / 안내 3분)
+## 0-1. Dry-run mode — preview the process without installing
 
-설치 시간은 PC(네트워크, 사양, 이미 설치된 도구)마다 크게 다릅니다. 그래서 **예상 시간을 약속하지 않고**, **30초마다 상태를, 3분마다 사용자 안내를 업데이트**하는 방식으로 진행합니다. 이 시간 동안 **사용자에게 안내를 전달하는 것이 가장 큰 목적**이므로 화면의 주인공은 사용자 안내이고, 설치 진행은 작은 상태바로만 보여 줍니다.
+Use this mode when the user asks with phrases such as **"dry-run", "simulate", "show me what would happen without installing", "드라이런", "시뮬레이션"**, etc. Without such a request, run in normal install mode. If it is ambiguous (e.g. "just try it"), ask the user which mode they want.
 
-### 업데이트 주기 — 상태는 30초, 사용자 안내는 3분
+> The scripts in this repository have no documented dry-run flag (per `SETUP.md`). The dry run is **demonstrated by the agent at the procedure level only**.
 
-| 무엇 | 주기 | 형식 |
+### What a dry run **does**
+
+- **Read-only** commands from the §1 preflight (OS detection, `--version`/`command -v`/`Get-Command`, disk space, checking `SETUP_CHECKLIST.md`)
+- §3-0 guidance-language detection (read-only — the guidance itself is delivered exactly as in a real install)
+- For each track, print the **list of commands that would actually have been run**, tailored to the current OS and scan results (already installed → `SKIP`, missing → `WOULD RUN`)
+- Deliver the §3 user guidance **exactly as in a real install** (the goal is to let the user experience the guidance flow)
+- An **expected-result report** in the §7 format (every status marked `[DRY-RUN]`)
+
+### What a dry run **never does**
+
+- Install/update/remove commands (`brew install`, `apt`, `winget install`, `bun install -g`, `wsl --install`, etc.)
+- Running the OS install scripts (`bash setup-mac.sh`, `.\setup-windows.ps1`, etc. — running them at all changes the system)
+- Downloading remote scripts (including the bun/uv/Codex/Antigravity install scripts — even just downloading is not done)
+- Requesting administrator/sudo privileges, or login commands
+- Creating log folders/files (including creating `~/workshop-setup-logs/`)
+
+> If a command is borderline, do not run it; just list it as "would run". A dry run must leave **zero** traces on the system.
+
+### Text to add to the sub-agent prompt
+
+```
+Mode: DRY-RUN. Use read-only tools only; do not run any command that changes the system or files.
+Report each step in the form "[DRY-RUN] SKIP(already installed: <version>)" or "[DRY-RUN] WOULD RUN: <command>".
+Also report the estimated duration and what the user must do (permissions, logins, subscriptions).
+```
+
+### Output format
+
+Use the following form per track.
+
+```
+[DRY-RUN] Track A — OS install script (est. 10–30 min)
+  SKIP         git 2.45.0 (already installed)
+  WOULD RUN    bash setup-mac.sh            # needs administrator/sudo privileges
+  USER ACTION  open a new terminal (to pick up PATH)
+```
+
+Finish with a summary.
+
+```
+## [DRY-RUN] Expected result — <OS>
+To install N / skipped M / manual install K / user actions J / estimated total time about XX min
+Changed: nothing
+To actually install: "read install.md and install everything" (without mentioning dry-run)
+```
+
+Add one line noting that the estimated time is approximate (it varies greatly with the network) and not guaranteed.
+
+---
+
+## 0-2. Output separation rules and update cadence (status every 30 s / guidance every 3 min)
+
+Installation time varies greatly from PC to PC (network, specs, what is already installed). So **do not promise an estimated time**; instead **update the status every 30 seconds and the user guidance every 3 minutes**. The main purpose of this waiting time is **to deliver guidance to the user**, so the guidance is the star of the screen and installation progress is shown only as a small status bar.
+
+### Update cadence — status every 30 s, user guidance every 3 min
+
+| What | Cadence | Format |
 |---|---|---|
-| **설치 상태 업데이트** | **30초마다** | 상태바 **한 줄만** (코드 블록, 본문 없음) |
-| **사용자 안내** | **3분마다** 1토막 (§3 순서대로) | 상태바 + `## 📘` 본문 |
-| **즉시 알림** | 상태 변화 시 즉시 | `🔧 [설치]` 한 줄 |
+| **Install status update** | **every 30 s** | **one status-bar line only** (code block, no body) |
+| **User guidance** | **one chunk every 3 min** (in §3 order) | status bar + `## 📘` body |
+| **Immediate notice** | immediately on a status change | one `🔧 [Install]` line |
 
-1. 설치를 시작할 때 **시작 시각을 기록**합니다 (`date +%s` / `Get-Date`). 모든 시간은 이 기록 기준의 **경과 시간**입니다.
-2. **30초마다 아래 "30초 점검 체크리스트"를 수행한 뒤** 설치 상태바 한 줄을 보냅니다. 서브 에이전트의 상태(`⏳/✅/⚠️/❌`)를 확인해 갱신하고, 변화가 없어도 경과 시간은 올라갑니다. 이 메시지에는 **안내 본문을 붙이지 않습니다**(짧게 유지).
-3. **3분(= 상태 업데이트 6회)마다** 상태바 위에 사용자 안내 1토막을 함께 보냅니다. 사용자가 안내를 읽을 시간이 필요하므로 안내를 30초마다 보내지 않습니다.
-4. 업데이트 사이에는 서브 에이전트를 백그라운드로 두고 **대기**합니다.
-   - Claude Code: `sleep 30` 으로 대기 → 서브 에이전트 상태 확인 → 상태바 출력을 반복합니다. 완료 알림이 오면 대기를 끊고 즉시 알립니다.
-   - 다른 도구: 가능한 대기/타이머 수단을 쓰고, 없으면 확인 가능한 시점마다 경과 시간을 계산해 30초가 넘었으면 상태바를 출력합니다.
-5. **즉시 알림**: 트랙 완료, 경고, 실패, 사용자 작업 필요(`🙋`)는 다음 30초를 기다리지 않고 바로 알립니다.
-6. **예상 남은 시간은 쓰지 않습니다.** 경과 시간과 완료/진행 중 트랙만 보여 줍니다. 시간 표현이 필요하면 "아직 진행 중"이라고만 말합니다. (드라이런 리포트의 대략적 예상 시간만 예외이며, 그때도 "PC마다 다름"을 덧붙입니다.)
-7. 안내할 토막이 모두 소진됐는데 설치가 계속 중이면 사용자 안내 대신 **상태바만** 30초마다 보내고, 3분마다 한 줄 격려("아직 진행 중입니다" — §3-0 의 언어로)를 덧붙입니다. 같은 안내를 반복하지 않습니다.
-8. 설치가 안내보다 먼저 끝나면 남은 안내는 핵심 3줄로 줄이고, 설치 결과 표(§7)를 보냅니다.
-9. 한 트랙이 **15분 이상** 진행 중이면 "오래 걸리고 있어요 — 네트워크 상태 확인이 필요할 수 있어요" (§3-0 의 언어로) 라고 한 번 알리고, 로그 경로(`~/workshop-setup-logs/`)를 안내합니다. 임의로 중단하지는 않습니다.
-10. 사용자가 "안내 그만"/"건너뛰기"라고 하면 사용자 안내만 중단하고 30초 상태바는 계속합니다. 상태 업데이트도 끄라고 하면 완료/실패 알림만 보냅니다.
+1. When installation starts, **record the start time** (`date +%s` / `Get-Date`). All times are **elapsed time** measured from this record.
+2. **Every 30 seconds, run the "30-second check list" below**, then send one install status-bar line. Check the sub-agents' status (`⏳/✅/⚠️/❌`) and update it; elapsed time advances even when nothing changed. **Do not attach guidance body** to this message (keep it short).
+3. **Every 3 minutes (= 6 status updates)**, send one chunk of user guidance together with the status bar above it. The user needs time to read the guidance, so do not send guidance every 30 seconds.
+4. Between updates, leave the sub-agents in the background and **wait**.
+   - Claude Code: repeat `sleep 30` to wait → check sub-agent status → print the status bar. When a completion notification arrives, break the wait and notify immediately.
+   - Other tools: use whatever wait/timer mechanism is available; if none, compute elapsed time at each point you can check and print the status bar once more than 30 seconds have passed.
+5. **Immediate notices**: track completion, warnings, failures, and user action needed (`🙋`) are reported right away without waiting for the next 30 seconds.
+6. **Do not state an estimated remaining time.** Show only elapsed time and the completed/in-progress tracks. If you need to express time, just say "still in progress". (The only exception is the rough estimated time in the dry-run report, and even then add "varies by PC".)
+7. If all guidance chunks are used up while installation continues, send **only the status bar** every 30 seconds instead of user guidance, and add a one-line encouragement every 3 minutes ("Still in progress" — in the §3-0 language). Do not repeat the same guidance.
+8. If installation finishes before the guidance does, trim the remaining guidance to 3 key lines and send the install result table (§7).
+9. If one track has been **in progress for 15 minutes or more**, tell the user once "This is taking a while — you may need to check your network" (in the §3-0 language), and point to the log path (`~/workshop-setup-logs/`). Do not abort on your own.
+10. If the user says "stop the guidance"/"skip", stop only the user guidance and keep the 30-second status bar going. If they also ask to turn off status updates, send only completion/failure notices.
 
-### 30초 점검 체크리스트 — 다음 단계로 안 넘어가는 문제 방지
+### 30-second check list — preventing the "never moved to the next step" problem
 
-서브 에이전트가 끝났는데도 다음 트랙이 시작되지 않는 일이 있었습니다. 완료 알림이 오지 않거나 놓칠 수 있으므로, **알림을 기다리지 말고 30초 상태 체크마다 아래를 직접 확인**하세요. 상태바를 출력하기 **전에** 먼저 수행합니다.
+There have been cases where a sub-agent finished but the next track never started. Completion notifications may not arrive or may be missed, so **do not wait for the notification; directly verify the following at every 30-second status check**. Do this **before** printing the status bar.
 
-| # | 점검 | 조치 |
+| # | Check | Action |
 |---|---|---|
-| 1 | 각 서브 에이전트의 **실제 상태**를 직접 조회 (완료/실행 중/응답 없음). 알림 수신 여부와 무관 | 완료인데 결과를 아직 읽지 않았다면 **지금 읽고** 트랙 상태를 갱신 |
-| 2 | **선행 조건이 충족됐는데 시작 안 된 트랙**이 있는가? (A 완료 → C 시작) | **즉시 시작**하고 `🔧 [설치] ✅ 트랙 X 완료 → 트랙 Y 시작` 알림. 다음 30초를 기다리지 않음 |
-| 3 | 모든 트랙이 끝났는데 **최종 보고(§7)가 아직 안 나갔는가?** | 즉시 §7 설치 결과 표 전송 후 상태 체크 종료 |
-| 4 | 트랙이 `⏳` 인데 서브 에이전트가 이미 **종료/실패/응답 없음** 상태인가? | `⏳` 로 두지 말고 `❌`(또는 `⚠️`)로 갱신하고 사유를 알림. 독립 트랙은 계속 진행 |
-| 5 | 같은 `⏳` 가 **연속 20회(10분) 이상** 변화 없음 + 서브 에이전트 출력도 없음 | "멈춘 것 같아요" 알림 + 로그 경로 안내 + 사용자에게 재시도/건너뛰기 선택 요청 (임의 중단 금지) |
-| 6 | 실패한 트랙에 **의존하는 트랙**이 있는가? (예: A 실패 → C 진행 불가) | 대기 상태(`·`)로 영원히 두지 말고 "선행 실패로 보류" 를 알리고 사용자 선택 요청 |
+| 1 | Query each sub-agent's **actual state** directly (done / running / unresponsive), regardless of whether a notification arrived | If it is done but you have not read the result yet, **read it now** and update the track status |
+| 2 | Is there a **track whose prerequisites are met but that has not started**? (A done → start C) | **Start it immediately** and send `🔧 [Install] ✅ Track X done → starting Track Y`. Do not wait for the next 30 seconds |
+| 3 | Have all tracks finished but the **final report (§7) not yet been sent**? | Send the §7 install result table immediately, then end status checks |
+| 4 | Is a track `⏳` while its sub-agent has already **ended/failed/gone unresponsive**? | Do not leave it as `⏳`; update to `❌` (or `⚠️`) and report the reason. Keep independent tracks going |
+| 5 | Has the same `⏳` shown **no change for 20 consecutive checks (10 min) or more**, with no sub-agent output either? | Notify "it looks stuck" + point to the log path + ask the user to choose retry/skip (do not abort on your own) |
+| 6 | Is there a track that **depends on a failed track**? (e.g. A failed → C cannot proceed) | Do not leave it in the waiting state (`·`) forever; report "on hold due to a prerequisite failure" and ask the user to choose |
 
-핵심 원칙: **"완료 알림이 와야 다음 단계"가 아니라 "상태 체크 때마다 다음 단계가 시작됐는지 확인"** 입니다. 서브 에이전트를 쓸 수 없어 순차 실행하는 경우에도, 한 트랙이 끝나는 즉시 같은 턴에서 다음 트랙을 시작하세요.
+Core principle: it is not "the next step only when a completion notification arrives" but **"at every status check, verify that the next step has started"**. Even when you run sequentially because sub-agents are unavailable, start the next track in the same turn the moment a track finishes.
 
-상태바에 점검 결과가 반영되어야 합니다. 예: 트랙 시작을 놓쳤다가 점검에서 발견해 시작했다면 상태바는 `C ⏳` 로 바뀌고, 앞서 `🔧 [설치]` 시작 알림이 나가야 합니다.
+The status bar must reflect the check results. Example: if you missed a track start, found it during the check and started it, the status bar changes to `C ⏳` and a `🔧 [Install]` start notice must have gone out beforehand.
 
-### 메시지 종류
+### Message types
 
-| 종류 | 형식 | 역할 |
+| Type | Format | Role |
 |---|---|---|
-| **사용자 안내** (주) | `## 📘 <안내 제목> n/5 — <제목>` 으로 시작하는 일반 마크다운 본문 (제목, 목록, 표, 예시 명령) | 사용자가 읽는 본문. 충분히 자세하게 (10~20줄) |
-| **설치 상태바** (보조) | 코드 블록 한 줄. 30초 상태 업데이트에서는 단독, 사용자 안내 메시지에서는 **맨 위** | 설치 진행 상황 |
-| **설치 이벤트** | `🔧 [설치] ✅/⚠️/❌ ...` 한 줄 | 상태 변화 즉시 알림 |
-| **사용자 작업 필요** | `**🙋 ...**` 굵게, 단독 메시지 | 로그인/구독/권한/클릭 요청 |
-| **드라이런** | 설치 상태바와 설치 이벤트 앞에 `🧪` | 예: `🧪 🔧 설치 진행 ...` (드라이런은 실제 시간이 걸리지 않으므로 3분 대기 없이 순서만 시연) |
+| **User guidance** (primary) | plain Markdown body starting with `## 📘 <guide title> n/5 — <title>` (headings, lists, tables, example commands) | The body the user reads. Reasonably detailed (10–20 lines) |
+| **Install status bar** (secondary) | one code-block line. Alone in a 30-second status update; at the **very top** of a user-guidance message | Install progress |
+| **Install event** | one `🔧 [Install] ✅/⚠️/❌ ...` line | Immediate notice of a status change |
+| **User action needed** | **bold `**🙋 ...**`**, as a standalone message | Request for a login/subscription/permission/click |
+| **Dry run** | `🧪` before the install status bar and install events | e.g. `🧪 🔧 Installing ...` (a dry run takes no real time, so demonstrate only the order without the 3-minute waits) |
 
-> 사용자 안내의 본문·제목은 §3-0 의 언어로 씁니다. 상태바 기호(`✅ ⏳ · ⚠️ ❌`), 트랙 이름(A/B/C), 명령어·도구명(`bun`, `setup-mac.sh` 등)은 언어와 무관하게 그대로 유지합니다.
+> Write the body and title of user guidance in the §3-0 language. Status-bar symbols (`✅ ⏳ · ⚠️ ❌`), track names (A/B/C), and command/tool names (`bun`, `setup-mac.sh`, etc.) stay as they are regardless of language.
 
-### 설치 상태바 형식 (30초마다, 안내 메시지에서는 맨 위 1줄)
+### Install status bar format (every 30 s; the top line in guidance messages)
 
 ````
 ```
-🔧 설치 진행  A ✅ │ B ✅ │ C ⏳      경과 06:00
+🔧 Installing  A ✅ │ B ✅ │ C ⏳      elapsed 06:00
 ```
 ````
 
-- 상태 기호: `✅` 완료, `⏳` 진행 중, `·` 대기, `⚠️` 경고, `❌` 실패.
-- 상태바 **밖**(본문)에는 설치 상태를 쓰지 않고, 상태바에는 안내 설명을 쓰지 않습니다.
+- Status symbols: `✅` done, `⏳` in progress, `·` waiting, `⚠️` warning, `❌` failed.
+- Do **not** write install status outside the status bar (in the body), and do not write guidance explanations inside the status bar.
 
-### 그 밖의 규칙
+### Other rules
 
-1. **본문은 읽을 만한 분량**(10~20줄, 표/예시 명령 포함)으로 씁니다. 짧은 한 줄 팁으로 때우지 마세요.
-2. 시작 알림: "설치가 진행되는 동안 30초마다 진행 상태를, 3분마다 이 환경을 어떻게 쓰는지 안내할게요." (§3-0 의 언어로). 종료 알림: "안내는 여기까지입니다".
-3. 서브 에이전트의 원문 로그는 안내 메시지에 붙이지 않고 `🔧 [설치]` 한 줄로 요약합니다.
-4. 두 종류(설치 이벤트와 사용자 안내)를 한 메시지에 섞지 않습니다. 같은 메시지라면 이벤트 줄을 맨 위에, 상태바, 본문 순서로 둡니다.
+1. Write **the body at a readable length** (10–20 lines, including tables/example commands). Do not get by with a one-line tip.
+2. Start notice: "While the installation runs, I'll post progress every 30 seconds and walk you through how to use this environment every 3 minutes." (in the §3-0 language). End notice: "That's all the guidance."
+3. Do not paste raw sub-agent logs into guidance messages; summarize them in one `🔧 [Install]` line.
+4. Do not mix the two kinds (install events and user guidance) in one message. If they share a message, put the event line first, then the status bar, then the body.
 
-출력 예시:
+Example output:
 
 ````
-🔧 [설치] 트랙 A (OS 설치 스크립트) 시작 - 백그라운드 진행 중
-설치가 진행되는 동안 30초마다 진행 상태를, 3분마다 이 환경을 어떻게 쓰는지 안내할게요.
+🔧 [Install] Track A (OS install script) started - running in the background
+While the installation runs, I'll post progress every 30 seconds and walk you through how to use this environment every 3 minutes.
 
 ```
-🔧 설치 진행  A ⏳ │ B ✅ │ C ·      경과 00:30
+🔧 Installing  A ⏳ │ B ✅ │ C ·      elapsed 00:30
 ```
 
-(30초 후)
+(30 seconds later)
 
 ```
-🔧 설치 진행  A ⏳ │ B ✅ │ C ·      경과 01:00
+🔧 Installing  A ⏳ │ B ✅ │ C ·      elapsed 01:00
 ```
 
-...(30초 간격으로 상태바만)...
+...(status bar only, every 30 seconds)...
 
-(3분 경과: 상태바 + 사용자 안내)
+(3 minutes elapsed: status bar + user guidance)
 
 ```
-🔧 설치 진행  A ⏳ │ B ✅ │ C ·      경과 03:00
+🔧 Installing  A ⏳ │ B ✅ │ C ·      elapsed 03:00
 ```
 
-## 📘 사용법 안내 1/5 — 무엇을 설치하나요?
+## 📘 Setup Guide 1/5 — What is being installed?
 ...
 
-🔧 [설치] ✅ 트랙 A 완료 (bun 1.1.34, uv 0.4.20, gh 2.x) → 트랙 C 시작   ← 즉시 알림
+🔧 [Install] ✅ Track A done (bun 1.1.34, uv 0.4.20, gh 2.x) → starting Track C   ← immediate notice
 
 ```
-🔧 설치 진행  A ✅ │ B ✅ │ C ⏳      경과 03:40
+🔧 Installing  A ✅ │ B ✅ │ C ⏳      elapsed 03:40
 ```
 ````
 
 ---
 
-## 1. 사전 점검 (메인 에이전트가 직접, 1분 이내)
+## 1. Preflight (main agent, directly, within 1 minute)
 
-### 1-1. OS 판별
+### 1-1. OS detection
 
-| 판별 | 방법 | 사용할 절차 |
+| Detection | Method | Procedure to use |
 |---|---|---|
-| Windows | `$env:OS -eq 'Windows_NT'` 또는 `uname` 이 `MINGW*/MSYS*/CYGWIN*` | **Windows 절차** (§4-W) |
-| macOS | `uname -s` = `Darwin` | **macOS 절차** (§4-M) |
-| Linux (Debian/Ubuntu) | `uname -s` = `Linux` 이고 `/etc/os-release` 의 `ID`/`ID_LIKE` 에 `debian`/`ubuntu` | **Linux 절차** (§4-L) |
-| Linux (Fedora/RHEL, Arch 등) | `/etc/os-release` 의 `ID`/`ID_LIKE` | **지원 범위 밖** — 수동 설치 안내로 대체하고 사용자에게 보고 |
-| WSL | `/proc/version` 에 `microsoft` 포함 | **Linux 절차** (Windows 쪽 도구와 섞지 말 것. 데스크톱 앱은 Windows 쪽 안내) |
+| Windows | `$env:OS -eq 'Windows_NT'`, or `uname` is `MINGW*/MSYS*/CYGWIN*` | **Windows procedure** (§4-4) |
+| macOS | `uname -s` = `Darwin` | **macOS procedure** (§4-2) |
+| Linux (Debian/Ubuntu) | `uname -s` = `Linux` and `ID`/`ID_LIKE` in `/etc/os-release` contains `debian`/`ubuntu` | **Linux procedure** (§4-3) |
+| Linux (Fedora/RHEL, Arch, etc.) | `ID`/`ID_LIKE` in `/etc/os-release` | **Out of supported scope** — substitute manual-install guidance and report to the user |
+| WSL | `/proc/version` contains `microsoft` | **Linux procedure** (do not mix with Windows-side tools. For desktop apps, give Windows-side guidance) |
 
-Windows 에서 Git Bash 로 실행 중이어도 설치 명령은 **PowerShell/winget** 기준(`setup-windows.ps1`)으로 수행합니다.
+Even when running in Git Bash on Windows, perform the install commands the **PowerShell/winget** way (`setup-windows.ps1`).
 
-### 1-2. 점검 항목
+### 1-2. Checks
 
-- 인터넷 연결 (`https://github.com`, `https://bun.sh` 접근)
-- 여유 디스크 **5 GB 이상**
-- 관리자(Windows)/sudo(macOS·Linux) 사용 가능 여부 — 없으면 미리 알리고 확인을 받습니다
-- **`SETUP_CHECKLIST.md` 완료 여부**를 사용자에게 묻습니다: Claude Pro/Max, ChatGPT Plus/Pro (Codex용), Gemini Advanced 구독, GitHub 계정. 완료되지 않았어도 설치는 진행하되 §5 에서 안내를 다시 전달합니다
+- Internet connectivity (access to `https://github.com`, `https://bun.sh`)
+- **5 GB or more** of free disk space
+- Whether administrator (Windows)/sudo (macOS·Linux) is available — if not, tell the user in advance and get confirmation
+- Ask the user whether they have **completed `SETUP_CHECKLIST.md`**: Claude Pro/Max, ChatGPT Plus/Pro (for Codex), Gemini Advanced subscriptions, and a GitHub account. Proceed with installation even if it is not complete, but deliver the guidance again in §5
 
-### 1-3. 현재 상태 스캔
+### 1-3. Current state scan
 
-아래 도구를 모두 조회해 `설치됨/없음` 표를 만듭니다 (서브 에이전트에게 "이미 설치된 것은 건너뛰기" 근거로 전달).
+Query all the tools below and build an `installed/missing` table (pass it to the sub-agents as the basis for "skip what is already installed").
 
 ```
 bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 ```
 
-- Windows 는 `python`(또는 `py -3`)과 `pwsh`, macOS/Linux 는 `python3`.
-- 위 표를 사용자에게 (§3-0 의 언어로) 한 번 요약해 보여주고 진행 여부를 확인합니다.
+- On Windows use `python` (or `py -3`) and `pwsh`; on macOS/Linux use `python3`.
+- Summarize the table above to the user once (in the §3-0 language) and confirm whether to proceed.
 
 ---
 
-## 2. 서브 에이전트 실행 계획
+## 2. Sub-agent execution plan
 
-설치 작업을 **트랙**으로 나누어 서브 에이전트에게 맡깁니다.
-각 서브 에이전트 프롬프트에는 §1 의 OS 판별 결과, 도구 스캔 표, 그리고 해당 트랙 절차(§4~§6)만 전달합니다.
+Split the installation work into **tracks** and hand them to sub-agents.
+Each sub-agent prompt receives only the OS detection result from §1, the tool scan table, and the procedure for its own track (§4–§6).
 
-| 트랙 | 서브 에이전트 | 내용 | 선행 조건 |
+| Track | Sub-agent | Contents | Prerequisite |
 |---|---|---|---|
-| **A. OS 설치 스크립트** | `setup-os-script` | §4 OS별 설치 스크립트 실행 | 없음 |
-| **B. 수동 항목 안내** | `setup-manual-apps` | §5 수동 설치 필요 항목 목록 정리 + 사용자 작업 안내 준비 | 없음 (A와 **병렬** 가능 — 시스템을 변경하지 않음) |
-| **C. 검증** | `setup-verify` | §6 `bun setup-common.ts` 실행 및 결과 정리 | A 완료 |
+| **A. OS install script** | `setup-os-script` | Run the per-OS install script from §4 | None |
+| **B. Manual items guidance** | `setup-manual-apps` | Compile the list of manually-installed items from §5 + prepare user-action guidance | None (can run **in parallel** with A — changes nothing on the system) |
+| **C. Verification** | `setup-verify` | Run `bun setup-common.ts` from §6 and summarize results | A done |
 
-실행 순서: **A ∥ B 병렬 → C**
+Execution order: **A ∥ B in parallel → C**
 
-> 트랙 전환은 서브 에이전트의 완료 알림에만 의존하지 마세요. §0-2 의 **30초 점검 체크리스트**로 매번 선행 조건 충족 여부를 직접 확인해 다음 트랙을 시작합니다.
+> Do not rely only on a sub-agent's completion notification for track transitions. At every check, use the **30-second check list** in §0-2 to verify directly whether prerequisites are met, and start the next track.
 
-### 도구별 서브 에이전트 호출 방법
+### How to call sub-agents per tool
 
-- **Claude Code**: `Agent` 도구로 위 서브 에이전트를 `run_in_background: true` 로 생성합니다. A 와 B 는 **한 메시지에서 동시에** 호출합니다. 완료 알림이 오면 결과를 읽고 다음 트랙을 시작합니다.
-- **Codex**: 서브 에이전트(spawn) 기능을 사용해 같은 분할로 실행합니다. 기능이 없으면 "트랙 단위로 순차 실행"하되 §3 안내는 각 트랙 사이에 계속합니다.
-- **Gemini CLI / Antigravity**: 서브 에이전트 기능이 있으면 동일하게 사용하고, 없으면 트랙 단위 순차 실행(백그라운드 셸 `&`/`Start-Process`)으로 대체합니다.
-- 서브 에이전트 프롬프트 템플릿:
+- **Claude Code**: create the sub-agents above with the `Agent` tool using `run_in_background: true`. Call A and B **simultaneously in one message**. When a completion notification arrives, read the result and start the next track.
+- **Codex**: use the sub-agent (spawn) feature to run the same split. If the feature is unavailable, run "sequentially, track by track", but keep delivering the §3 guidance between tracks.
+- **Gemini CLI / Antigravity**: use sub-agent features the same way if available; otherwise substitute sequential per-track execution (background shell `&`/`Start-Process`).
+- Sub-agent prompt template:
 
   ```
-  역할: Workshop Setup 설치 트랙 <A|B|C> 담당.
-  환경: OS=<...>, 패키지 관리자=<winget|brew|apt|...>, 사전 스캔 결과=<표>
-  할 일: install.md 의 <§N> 절차를 순서대로 수행.
-  모드: <INSTALL|DRY-RUN>  (DRY-RUN 이면 §0-1 규칙을 따를 것)
-  규칙: 이미 설치된 것은 건너뜀. 비밀값/로그인/구독은 건드리지 말고 "사용자 작업 필요"로 보고.
-        관리자/sudo 권한이 필요하면 실행하지 말고 필요한 명령만 보고.
-  보고 형식: 단계별 ✅/⚠️/❌ + 설치된 버전 + 사용자가 해야 할 일 목록. (500단어 이내)
+  Role: in charge of Workshop Setup install track <A|B|C>.
+  Environment: OS=<...>, package manager=<winget|brew|apt|...>, pre-scan result=<table>
+  Task: perform the procedure in install.md <§N> in order.
+  Mode: <INSTALL|DRY-RUN>  (if DRY-RUN, follow the §0-1 rules)
+  Rules: skip what is already installed. Do not touch secrets/logins/subscriptions; report them as "user action needed".
+         If administrator/sudo privileges are needed, do not run it; report only the needed command.
+  Report format: per-step ✅/⚠️/❌ + installed version + list of what the user must do. (within 500 words)
   ```
 
 ---
 
-## 3. 대기 시간 동안의 사용자 안내 (메인 에이전트)
+## 3. User guidance while waiting (main agent)
 
-서브 에이전트를 시작하자마자 사용자에게 아래 안내를 **짧게, 단계별로** 전달합니다. 모든 안내는 **§0-2 형식**(맨 위 설치 상태바 + `## 📘 ... n/5 — 제목` 본문)으로 출력합니다. 3-1 은 안내가 아니라 시작 알림이고, 실제 안내는 3-2~3-6 의 5토막(1/5~5/5)이며 **3분마다 한 토막씩** 순서대로 전달합니다. **이 시간의 주목적은 사용자 안내**이므로 아래 내용을 요약하지 말고 읽을 만한 분량으로 전달합니다.
-한 번에 길게 쏟지 말고, 트랙 완료 알림 사이사이에 한 토막씩 전달하세요.
-원문 자료: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md) · [README.md](README.md) (한국어 번역: `SETUP_ko.md`, `SETUP_CHECKLIST_ko.md`) — 사용자가 더 읽고 싶어 하면 링크를 제공
+As soon as the sub-agents start, deliver the guidance below to the user **briefly, step by step**. Output all guidance in the **§0-2 format** (install status bar at the top + `## 📘 ... n/5 — title` body). 3-1 is not guidance but the start notice; the actual guidance is the 5 chunks (1/5–5/5) in 3-2 through 3-6, delivered **one chunk every 3 minutes** in order. Since the **main purpose of this time is user guidance**, do not summarize the content below; deliver it at a readable length.
+Do not dump it all at once; deliver one chunk at a time between track completion notices.
+Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md) · [README.md](README.md) (Korean translations: `SETUP_ko.md`, `SETUP_CHECKLIST_ko.md`) — provide the links if the user wants to read more
 
-### 3-0. 안내 언어 판별 (이 문서 고유 규칙 — 반드시 먼저 수행)
+### 3-0. Guidance language detection (a rule unique to this document — always do this first)
 
-설치 시작 전 **한 번만**, 설치되는 시스템의 언어 설정을 확인하고 그 결과를 모든 사용자 안내에 적용합니다.
+**Once** before installation starts, check the language setting of the system being installed, and apply the result to all user guidance.
 
-**판별 방법 (OS별):**
+**Detection method (per OS):**
 
-| OS | 확인 명령 | 예시 출력 |
+| OS | Command | Example output |
 |---|---|---|
-| Windows | PowerShell: `powershell -NoProfile -Command "(Get-UICulture).Name"` (실패 시 `Get-WinSystemLocale`) | `ko-KR`, `ja-JP`, `es-ES`, `en-US` |
-| macOS | `defaults read -g AppleLocale` (실패 시 `defaults read -g AppleLanguages \| head -1`) | `ko_KR`, `ja_JP`, `es_ES`, `en_US` |
-| Linux | `echo $LANG` 또는 `locale | head -1` | `ko_KR.UTF-8`, `ja_JP.UTF-8`, `es_ES.UTF-8`, `en_US.UTF-8` |
+| Windows | PowerShell: `powershell -NoProfile -Command "(Get-UICulture).Name"` (on failure, `Get-WinSystemLocale`) | `ko-KR`, `ja-JP`, `es-ES`, `en-US` |
+| macOS | `defaults read -g AppleLocale` (on failure, `defaults read -g AppleLanguages \| head -1`) | `ko_KR`, `ja_JP`, `es_ES`, `en_US` |
+| Linux | `echo $LANG` or `locale | head -1` | `ko_KR.UTF-8`, `ja_JP.UTF-8`, `es_ES.UTF-8`, `en_US.UTF-8` |
 
-**매핑 규칙** — 값의 **앞 두 글자(언어 코드)만** 본다:
+**Mapping rule** — look at **only the first two letters (the language code)** of the value:
 
-| 판별 결과 | 안내 언어 |
+| Detection result | Guidance language |
 |---|---|
-| `ko*` | 한국어 (KO 블록) |
-| `ja*` | 일본어 (JA 블록) |
-| `es*` | 스페인어 (ES 블록) |
-| `en*` 및 **그 외 모든 언어**, 판별 실패, 출력이 `C`/`POSIX` | **영어 (EN 블록 — 기본값)** |
+| `ko*` | Korean (KO block) |
+| `ja*` | Japanese (JA block) |
+| `es*` | Spanish (ES block) |
+| `en*` and **every other language**, detection failure, output of `C`/`POSIX` | **English (EN block — default)** |
 
-- Git Bash 에서 Windows 를 판별할 때 `$LANG` 는 Git Bash 자체 기본값(`en_US.UTF-8`)일 수 있으므로 **PowerShell `Get-UICulture` 를 우선** 사용하세요.
-- 판별은 시작 시 한 번만 수행하고 결과를 기록합니다. 사용자가 명시적으로 다른 언어를 요청하면 그 요청이 판별 결과보다 우선합니다.
-- §3-2~3-6 의 각 안내 토막에는 **EN / KO / JA / ES 4개 언어 블록**이 있습니다. 그중 **판별된 언어 블록 하나만** 출력하고 나머지는 절대 보여주지 마세요.
-- 안내 제목, 본문, 격려 메시지, 최종 보고의 "사용자가 직접 해야 할 일" 모두 같은 언어를 사용합니다. 명령어·도구명·트랙 이름은 원문 그대로 유지합니다.
+- When detecting Windows from Git Bash, `$LANG` may be Git Bash's own default (`en_US.UTF-8`), so **prefer PowerShell `Get-UICulture`**.
+- Perform detection only once at startup and record the result. If the user explicitly requests a different language, that request takes priority over the detection result.
+- Each guidance chunk in §3-2 through 3-6 has **four language blocks: EN / KO / JA / ES**. Output **only the one block for the detected language** and never show the others.
+- The guidance title, body, encouragement messages, and the "what the user must do themselves" part of the final report all use the same language. Keep commands, tool names, and track names verbatim.
 
-### 3-1. "지금 설치 중입니다" (`🔧 [설치]` 메시지, 안내 아님)
+### 3-1. "Installation is running now" (a `🔧 [Install]` message, not guidance)
 
 > **[EN]** The installation is running in the background. Duration varies by machine, so I'll update progress every 30 seconds and introduce the environment every 3 minutes.
 >
@@ -316,9 +316,9 @@ bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 
 ---
 
-### 3-2. 무엇을 설치하나요? (안내 1/5)
+### 3-2. What is being installed? (guidance 1/5)
 
-**[EN — English]** *(기본값)*
+**[EN — English]** *(default)*
 
 > ## 📘 Setup Guide 1/5 — What is being installed?
 >
@@ -364,9 +364,9 @@ bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 
 ---
 
-### 3-3. 각 도구가 하는 일 (안내 2/5)
+### 3-3. What each tool does (guidance 2/5)
 
-**[EN — English]** *(기본값)*
+**[EN — English]** *(default)*
 
 > ## 📘 Setup Guide 2/5 — What each tool does
 >
@@ -412,9 +412,9 @@ bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 
 ---
 
-### 3-4. 설치 후 내가 해야 할 일 (안내 3/5)
+### 3-4. What I need to do after installation (guidance 3/5)
 
-**[EN — English]** *(기본값)*
+**[EN — English]** *(default)*
 
 > ## 📘 Setup Guide 3/5 — What YOU do after the install
 >
@@ -468,9 +468,9 @@ bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 
 ---
 
-### 3-5. 검증하는 법 (안내 4/5)
+### 3-5. How to verify (guidance 4/5)
 
-**[EN — English]** *(기본값)*
+**[EN — English]** *(default)*
 
 > ## 📘 Setup Guide 4/5 — How to verify
 >
@@ -516,9 +516,9 @@ bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 
 ---
 
-### 3-6. 팁과 더 알아보기 (안내 5/5)
+### 3-6. Tips and learning more (guidance 5/5)
 
-**[EN — English]** *(기본값)*
+**[EN — English]** *(default)*
 
 > ## 📘 Setup Guide 5/5 — Tips and where to learn more
 >
@@ -560,67 +560,67 @@ bun, git, gh, python(3), uv, claude, codex, agy, gitleaks, pwsh
 
 ---
 
-### 3-7. 완료 후 (마지막)
+### 3-7. After completion (last)
 
-사용자 안내를 마무리하고("안내는 여기까지입니다" — §3-0 의 언어로), 별도 메시지로 설치 결과 표(§7, `🔧 [설치]`)와 함께 "다음에 할 일"(로그인, 구독, 수동 설치 앱)을 §3-0 의 언어로 안내합니다.
+Wrap up the user guidance ("That's all the guidance" — in the §3-0 language), and in a separate message send the install result table (§7, `🔧 [Install]`) together with "next steps" (logins, subscriptions, manually-installed apps) in the §3-0 language.
 
 ---
 
-## 4. 트랙 A — OS 설치 스크립트 실행 (`setup-os-script`)
+## 4. Track A — Run the OS install script (`setup-os-script`)
 
-> 스크립트가 이미 설치된 항목을 건너뛰므로, 에이전트가 임의로 개별 도구를 수동 설치하지 마세요. 스크립트가 실패한 항목만 `SETUP.md` 의 설치 방법으로 보완합니다.
+> Because the scripts skip already-installed items, the agent must not arbitrarily install individual tools by hand. Supplement only the items the script failed on, using the install methods in `SETUP.md`.
 
-### 4-1. 옵션 플래그 (사용자에게 먼저 물어볼 것)
+### 4-1. Option flags (ask the user first)
 
-- `--wezterm` (Windows `-WezTerm`): GPU 가속 터미널 WezTerm 추가 설치
-- `--docker` (Windows `-Docker`): Docker Desktop 추가 설치
-- `-WSL2` (Windows 전용): WSL2 설치 (**재시작 필요** — 사전에 사용자에게 알리고 동의를 받습니다)
-- `--force` (Windows `-Force`): 이미 설치된 도구도 강제 재설치 (기본은 스킵)
-- `--company <name>`: 조직 추가 도구 설치 (사용자가 조직 소속이고 지시할 때만)
-- `--help`: 사용법 출력
+- `--wezterm` (Windows `-WezTerm`): additionally install WezTerm, the GPU-accelerated terminal
+- `--docker` (Windows `-Docker`): additionally install Docker Desktop
+- `-WSL2` (Windows only): install WSL2 (**a restart is required** — tell the user in advance and get their consent)
+- `--force` (Windows `-Force`): force reinstall even tools that are already installed (default is to skip)
+- `--company <name>`: install organization-specific extra tools (only when the user belongs to an organization and instructs it)
+- `--help`: print usage
 
-기본 설치는 **플래그 없이** 실행하는 것이 원칙입니다. 옵션 도구는 실행 전 사용자에게 물어보고 선택된 것만 붙입니다.
+The principle is to run the default install **with no flags**. Ask the user before running optional tools, and attach only the ones selected.
 
 ### 4-2. macOS
 
 ```bash
-bash setup-mac.sh            # [+ 사용자가 선택한 옵션 플래그]
+bash setup-mac.sh            # [+ option flags chosen by the user]
 ```
 
-- Homebrew 가 없으면 스크립트가 Xcode CLT + Homebrew 를 설치하며 **sudo 비밀번호 입력이 필요**합니다. 비대화형 환경에서 비밀번호를 입력할 수 없으면 "사용자가 직접 터미널에서 실행해야 함"으로 보고하세요 (`NONINTERACTIVE=1` 로 억지 진행하지 않음).
-- Docker Desktop 옵션은 설치 후 **사용자가 Docker Desktop 앱을 한 번 실행**해야 서비스가 시작됩니다.
+- If Homebrew is missing, the script installs Xcode CLT + Homebrew, which **requires entering the sudo password**. If the password cannot be entered in a non-interactive environment, report it as "the user must run this directly in a terminal" (do not force it through with `NONINTERACTIVE=1`).
+- With the Docker Desktop option, **the user must launch the Docker Desktop app once** after installation for the service to start.
 
 ### 4-3. Linux (Ubuntu/Debian)
 
 ```bash
-bash setup-linux.sh          # [+ 사용자가 선택한 옵션 플래그]
+bash setup-linux.sh          # [+ option flags chosen by the user]
 ```
 
-- `sudo` 가 필요한 단계에서 **sudo 비밀번호는 사용자가 직접 입력**합니다. 에이전트는 비밀번호를 묻거나 입력하지 않습니다.
-- Docker 옵션은 `get.docker.com` 스크립트를 사용합니다 (스크립트가 파일로 내려받아 해시를 출력·기록한 뒤 실행).
+- At steps that need `sudo`, **the user enters the sudo password personally**. The agent neither asks for nor types the password.
+- The Docker option uses the `get.docker.com` script (the script downloads it to a file, prints and logs the hash, then runs it).
 
 ### 4-4. Windows
 
-**PowerShell 을 관리자 권한으로** 열어 실행합니다. 스크립트는 PowerShell 7+ 이 필요하며, 5.1 에서 시작하면 `pwsh` 로 자동 재실행합니다 (필요 시 winget 으로 PowerShell 7 을 먼저 설치).
+Open **PowerShell as administrator** and run it. The script requires PowerShell 7+ and, if started under 5.1, automatically relaunches itself with `pwsh` (installing PowerShell 7 via winget first if needed).
 
 ```powershell
-# 실행 정책 회피를 포함해 시작 (스크립트 차단 자체를 방지)
+# Start with an execution-policy bypass (prevents the script from being blocked at all)
 powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 [-WezTerm] [-Docker] [-WSL2] [-Force] [-Company <name>]
 
-# 또는 세션 한정 정책 우회 후 실행:
+# Or bypass the policy for this session only, then run:
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\setup-windows.ps1
 ```
 
-- `-WSL2` 사용 시 **재시작이 필요**합니다 — 실행 전 사용자에게 알리고 동의를 받습니다.
-- 실행 후 **새 터미널을 열어야** PATH 가 반영됩니다. 같은 세션을 이어서 쓰려면:
+- Using `-WSL2` **requires a restart** — tell the user before running and get their consent.
+- After running, **open a new terminal** for PATH to take effect. To keep using the same session:
   ```powershell
   $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
   ```
 
-### 4-5. 버전 고정 (사용자가 요청할 때만)
+### 4-5. Version pinning (only when the user asks)
 
-> `PYTHON_VERSION` 은 macOS/Linux 전용입니다 (Windows 는 `winget Python.Python.3.13` 고정). macOS 는 Homebrew 가 최신 uv 를 설치하므로 `UV_VERSION` 은 경고만 출력하고 핀되지 않습니다.
+> `PYTHON_VERSION` is macOS/Linux only (Windows is fixed to `winget Python.Python.3.13`). On macOS, Homebrew installs the latest uv, so `UV_VERSION` only prints a warning and is not pinned.
 
 ```bash
 # macOS / Linux
@@ -632,113 +632,113 @@ BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 $env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
-### 검증 (트랙 A)
+### Verify (Track A)
 
-- 스크립트 자체의 종료 코드가 0 이고, 마지막 요약에 치명적 실패(❌) 항목이 없어야 합니다.
-- 경고(⚠️, 예: 수동 설치 필요 항목)는 §5 로 전달합니다.
-- 로그: `~/workshop-setup-logs/` (Windows: `%USERPROFILE%\workshop-setup-logs\`) — 실패 항목은 로그 파일 경로와 함께 보고합니다.
+- The script's own exit code must be 0, and its final summary must contain no fatal-failure (❌) items.
+- Pass warnings (⚠️, e.g. items needing manual install) on to §5.
+- Logs: `~/workshop-setup-logs/` (Windows: `%USERPROFILE%\workshop-setup-logs\`) — report failed items together with their log file path.
 
 ---
 
-## 5. 트랙 B — 수동 항목과 사용자 작업 (`setup-manual-apps`)
+## 5. Track B — Manual items and user actions (`setup-manual-apps`)
 
-시스템을 변경하지 않고, 사용자가 직접 해야 할 일을 정리해 §3-0 의 언어로 전달합니다 (트랙 A와 병렬 진행).
+Without changing the system, compile what the user must do themselves and deliver it in the §3-0 language (runs in parallel with Track A).
 
-### 5-1. 수동 설치가 필요한 항목 (OS별)
+### 5-1. Items that need manual installation (per OS)
 
-| 항목 | macOS | Linux | Windows |
+| Item | macOS | Linux | Windows |
 |---|---|---|---|
-| Claude Desktop | 자동 (`brew install --cask claude`) | ⚠️ 수동 | 자동 (`winget Anthropic.Claude`) |
-| Codex Desktop | 자동 (DMG, 서명 검증) | ⚠️ CLI 전용 (데스크톱 없음) | 자동 (Microsoft Store, `winget` msstore) |
-| Antigravity Desktop | ⚠️ 수동 | ⚠️ 수동 | ⚠️ 수동 |
-| Mark (Markdown 뷰어) | ⚠️ 수동 | ⚠️ 수동 | ⚠️ 수동 |
+| Claude Desktop | Automatic (`brew install --cask claude`) | ⚠️ Manual | Automatic (`winget Anthropic.Claude`) |
+| Codex Desktop | Automatic (DMG, signature verified) | ⚠️ CLI only (no desktop app) | Automatic (Microsoft Store, `winget` msstore) |
+| Antigravity Desktop | ⚠️ Manual | ⚠️ Manual | ⚠️ Manual |
+| Mark (Markdown viewer) | ⚠️ Manual | ⚠️ Manual | ⚠️ Manual |
 
-⚠️ 항목은 공식 다운로드 페이지를 안내하고 **사용자가 직접** 설치하도록 합니다. Linux 의 Codex Desktop 은 데스크톱 앱이 존재하지 않으므로 "CLI 만 사용 가능"으로 안내합니다.
+For ⚠️ items, point to the official download page and have **the user** install them. Codex Desktop on Linux has no desktop app, so tell the user "only the CLI is available".
 
-### 5-2. 로그인 (사용자 작업 — 에이전트가 대행하지 않음)
+### 5-2. Logins (user actions — the agent does not do them on their behalf)
 
 ```bash
 gh auth login
-claude login        # 또는 claude 실행 후 /login
+claude login        # or run claude and then /login
 codex login
 ```
 
-에이전트는 로그인 상태를 **읽기 전용으로만** 확인합니다 (`gh auth status` 등). 안 되어 있으면 위 명령을 사용자가 직접 실행하도록 안내합니다 (`claude auth status` 는 대화형 CLI 에서 `/login` 으로 대체될 수 있음).
+The agent checks login status **read-only** (e.g. `gh auth status`). If not logged in, tell the user to run the commands above themselves (`claude auth status` may be replaced by `/login` in the interactive CLI).
 
-### 5-3. 구독/계정 (체크리스트 항목)
+### 5-3. Subscriptions/accounts (checklist items)
 
-- Claude Pro/Max (claude), ChatGPT Plus/Pro (codex), Gemini Advanced (agy) — **구독**이 필요하고 API 키가 아닙니다.
-- GitHub 계정이 없으면 가입을 안내합니다.
-- 한국 공공 API 키 등은 이 저장소의 설치 범위 밖입니다 (워크샵 프로젝트에서 별도 안내).
+- Claude Pro/Max (claude), ChatGPT Plus/Pro (codex), Gemini Advanced (agy) — these require **subscriptions**, not API keys.
+- If the user has no GitHub account, guide them through signing up.
+- Korean public-API keys and the like are outside this repository's install scope (covered separately in the workshop projects).
 
 ---
 
-## 6. 트랙 C — 최종 검증 (`setup-verify`)
+## 6. Track C — Final verification (`setup-verify`)
 
-### 6-1. 검증 스크립트 실행
+### 6-1. Run the verification script
 
 ```bash
-bun setup-common.ts          # 사람이 읽는 검증 표
-bun setup-common.ts --json   # 기계 판독 출력 (CI/스크립트용)
+bun setup-common.ts          # human-readable verification table
+bun setup-common.ts --json   # machine-readable output (for CI/scripts)
 ```
 
-이 표에는 모든 도구의 ✅/❌, `bun`/`uv` 최소 버전 검사, OS별 파이썬 검사(macOS/Linux `python3`, Windows `python`), `claude`/`codex`/`gh` 로그인 상태가 포함됩니다.
+This table includes ✅/❌ for every tool, minimum-version checks for `bun`/`uv`, per-OS Python checks (macOS/Linux `python3`, Windows `python`), and login status for `claude`/`codex`/`gh`.
 
-### 6-2. 판정
+### 6-2. Verdict
 
-- **필수 행이 모두 ✅** → 워크샵 준비 완료. §7 최종 보고로 진행합니다.
-- ❌ 항목이 있으면:
-  1. "PATH 문제" 가능성 → 새 터미널에서 재검증을 시도합니다 (§4-4 의 `$env:Path` 재로드 포함).
-  2. 그래도 ❌ 면 `SETUP.md` 의 **Troubleshooting** 절의 해당 조치를 적용합니다 (§8 표 참조).
-  3. 로그인 상태 ❌ 는 사용자 작업(§5-2)으로 분류하고 설치 실패로 세지 않습니다.
-- 오프라인/사내망 환경: 원격 설치 스크립트(bun, uv, Codex CLI, Antigravity CLI) 다운로드가 막혀 있으면 설치를 진행하지 말고 "사용자 작업 필요(프록시 설정 또는 수동 설치)"로 보고합니다. 임의의 미러/포크로 대체하지 마세요.
+- **All required rows ✅** → ready for the workshop. Proceed to the §7 final report.
+- If there are ❌ items:
+  1. Possible "PATH problem" → try re-verifying in a new terminal (including the `$env:Path` reload in §4-4).
+  2. If still ❌, apply the matching fix from the **Troubleshooting** section of `SETUP.md` (see the §8 table).
+  3. A login-status ❌ is classified as a user action (§5-2) and is not counted as an install failure.
+- Offline/corporate network: if downloading the remote install scripts (bun, uv, Codex CLI, Antigravity CLI) is blocked, do not proceed with installation; report it as "user action needed (proxy setup or manual install)". Do not substitute an arbitrary mirror/fork.
 
 ---
 
-## 7. 최종 보고 형식 (메인 에이전트가 사용자에게 — §3-0 의 언어로)
+## 7. Final report format (main agent to the user — in the §3-0 language)
 
 ```
-## 설치 결과 — <OS>   *(Language used: <KO/JA/ES/EN> — §3-0 판별 결과)*
-| 트랙 | 결과 | 비고 |
+## Install result — <OS>   *(Language used: <KO/JA/ES/EN> — §3-0 detection result)*
+| Track | Result | Notes |
 |---|---|---|
-| A OS 설치 스크립트 | ✅/⚠️/❌ | 설치된 버전 (bun, uv, python, gh, claude, codex, agy, gitleaks) |
-| B 수동 항목 | ✅/⚠️/❌ | 수동 설치 필요 앱 목록 |
-| C 검증 | ✅/⚠️/❌ | bun setup-common.ts 결과 |
+| A OS install script | ✅/⚠️/❌ | installed versions (bun, uv, python, gh, claude, codex, agy, gitleaks) |
+| B Manual items | ✅/⚠️/❌ | list of apps needing manual install |
+| C Verification | ✅/⚠️/❌ | bun setup-common.ts result |
 
-### 사용자가 직접 해야 할 일
-- [ ] 새 터미널을 열어 PATH 반영
-- [ ] gh / claude / codex 로그인
-- [ ] 구독 확인: Claude Pro/Max, ChatGPT Plus/Pro, Gemini Advanced
-- [ ] (OS별) 수동 설치 앱: <Antigravity Desktop, Mark 등 ⚠️ 항목>
-- [ ] (Windows) `-WSL2` 를 설치했다면 재시작
-- [ ] (실패 항목) <원인과 다음 조치 + 로그 경로>
+### What you need to do yourself
+- [ ] Open a new terminal to pick up PATH
+- [ ] Log in to gh / claude / codex
+- [ ] Confirm subscriptions: Claude Pro/Max, ChatGPT Plus/Pro, Gemini Advanced
+- [ ] (per OS) manually-installed apps: <⚠️ items such as Antigravity Desktop, Mark>
+- [ ] (Windows) restart if you installed `-WSL2`
+- [ ] (failed items) <cause and next step + log path>
 
-### 시작하기
-bun setup-common.ts   →   모두 ✅ 이면 새 터미널에서 claude / codex / agy 실행
+### Getting started
+bun setup-common.ts   →   if everything is ✅, run claude / codex / agy in a new terminal
 ```
 
 ---
 
-## 8. 문제 해결 (에이전트 참고 — `SETUP.md` Troubleshooting 과 동기화 유지)
+## 8. Troubleshooting (agent reference — keep in sync with `SETUP.md` Troubleshooting)
 
-| 증상 | 조치 |
+| Symptom | Action |
 |---|---|
-| 설치 후 `bun: command not found` | 터미널 재시작. macOS/Linux: `export PATH="$HOME/.bun/bin:$PATH"`. Windows: bun 은 User PATH 에 자동 등록되므로 새 터미널에서 확인 |
-| `claude: command not found` (bun install 후) | 스크립트가 npm 폴백으로 자동 재시도합니다. 계속되면 `bun pm ls -g` 확인 후 bin 디렉터리를 PATH 에 추가 |
-| `codex: command not found` | 스크립트는 단독 바이너리를 설치합니다. 터미널 재시작으로 `~/.local/bin`(Linux) 또는 winget links dir(Windows) 반영 |
-| `agy: command not found` | Antigravity CLI 는 `~/.local/bin` 또는 `/usr/local/bin` 에 설치됩니다. `source ~/.bashrc` 또는 터미널 재시작 |
-| Windows: `execution of scripts is disabled` | `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1` 로 시작. 영구 설정(사용자 단위): `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`. **그룹 정책(MachinePolicy/UserPolicy)** 이면 로컬 변경 불가 — IT 에 문의. 다운로드한 `.ps1` 은 `Unblock-File` 필요할 수 있음 |
-| Windows: 관리자 권한 없이 실행됨 | 스크립트는 경고 후 계속하지만 일부 설치(winget, WSL2)가 실패할 수 있음. 관리자 PowerShell 로 재실행 권장 |
-| mac/linux: sudo 비밀번호 입력 불가 | 해당 단계를 "사용자가 직접 터미널에서 실행"으로 보고하고 나머지 진행. `NONINTERACTIVE=1` 로 억지 진행하지 않음 |
-| 지원 범위 밖 Linux 배포판 (Fedora/RHEL, Arch 등) | 스크립트를 실행하지 말고 `SETUP.md` 의 설치 방법 표를 기준으로 수동 설치를 안내 (임의 치환 설치 금지) |
-| 권한 부족 | 해당 명령만 사용자에게 전달하고 나머지 진행 |
-| 로그 확인 | `~/workshop-setup-logs/` (Windows: `%USERPROFILE%\workshop-setup-logs\`) |
+| `bun: command not found` after install | Restart the terminal. macOS/Linux: `export PATH="$HOME/.bun/bin:$PATH"`. Windows: bun is registered in the User PATH automatically, so check in a new terminal |
+| `claude: command not found` (after bun install) | The script automatically retries with an npm fallback. If it persists, check `bun pm ls -g` and add the bin directory to PATH |
+| `codex: command not found` | The script installs a standalone binary. Restart the terminal to pick up `~/.local/bin` (Linux) or the winget links dir (Windows) |
+| `agy: command not found` | The Antigravity CLI installs to `~/.local/bin` or `/usr/local/bin`. `source ~/.bashrc` or restart the terminal |
+| Windows: `execution of scripts is disabled` | Start with `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1`. Permanent per-user setting: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`. If it is **Group Policy (MachinePolicy/UserPolicy)**, it cannot be changed locally — contact IT. A downloaded `.ps1` may need `Unblock-File` |
+| Windows: ran without administrator privileges | The script warns and continues, but some installs (winget, WSL2) may fail. Re-running in an administrator PowerShell is recommended |
+| mac/linux: cannot enter the sudo password | Report that step as "the user must run it directly in a terminal" and proceed with the rest. Do not force it through with `NONINTERACTIVE=1` |
+| Unsupported Linux distribution (Fedora/RHEL, Arch, etc.) | Do not run the script; guide a manual install based on the install-method table in `SETUP.md` (no arbitrary substitute installs) |
+| Insufficient privileges | Hand only that command to the user and proceed with the rest |
+| Checking logs | `~/workshop-setup-logs/` (Windows: `%USERPROFILE%\workshop-setup-logs\`) |
 
 ---
 
-## 9. 이 문서의 유지보수
+## 9. Maintaining this document
 
-- 설치 명령·플래그는 `SETUP.md` 를 **기준**으로 합니다. 이 문서에 버전을 복제하지 마세요 (표의 버전은 작성 시점 예시 값).
-- `SETUP.md` 의 플래그가 바뀌면 이 문서의 §4-1, §4-2~4-5, §6, §8 을 **함께** 갱신하세요. `check-docs-sync.sh` 와 CI(`.github/workflows/test-setup.yml` 의 docs-sync)는 `SETUP.md`/`SETUP_ko.md` 의 동기화만 검사하며, 이 문서는 검사 대상이 아닙니다.
-- 설치 대상 도구가 추가되면 §0 도구 목록, §1-3 스캔 목록, §5-1 수동 설치 표에 한 줄씩 추가하세요.
-- **안내 언어 집합을 바꾸려면**: §3-0 의 매핑 표와 §3-2~3-6 의 언어 블록을 함께 갱신하세요. 기본값(폴백)은 영어를 유지하는 것이 이 문서의 규칙입니다.
+- Install commands and flags use `SETUP.md` as the **source of truth**. Do not duplicate versions into this document (versions in tables are example values at the time of writing).
+- If a flag in `SETUP.md` changes, update §4-1, §4-2 to 4-5, §6, and §8 of this document **together**. `check-docs-sync.sh` and CI (docs-sync in `.github/workflows/test-setup.yml`) check only the sync of `SETUP.md`/`SETUP_ko.md`; this document is not checked.
+- If an install target tool is added, add one line each to the §0 tool list, the §1-3 scan list, and the §5-1 manual-install table.
+- **To change the set of guidance languages**: update the mapping table in §3-0 and the language blocks in §3-2 to 3-6 together. Keeping English as the default (fallback) is a rule of this document.

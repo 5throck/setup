@@ -8,7 +8,7 @@
 # (default: latest). Example: BUN_VERSION=1.4.5 bash setup-linux.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
-# (curl | bash) for bun, NodeSource, Codex CLI, and Antigravity CLI. This is
+# (curl | bash) for bun, Claude Code, NodeSource, Codex CLI, and Antigravity CLI. This is
 # the standard official install path for these tools, but it carries
 # supply-chain risk: the downloaded script runs with your user permissions
 # before you can review it. Installers are downloaded to disk first (not
@@ -174,12 +174,18 @@ fi
 # ── 6. CLI tools ──────────────────────────────────────────────────────────────
 section 6 $TOTAL "CLI tools"
 if should_install claude; then
-  if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
-    drop_last_error   # the npm fallback below decides the outcome
-    NODE_SETUP=$(mktemp)
-    run_step "Install Node.js (fallback)" bash -c "curl -fsSL --connect-timeout 10 --max-time 60 https://deb.nodesource.com/setup_lts.x -o '$NODE_SETUP' && sudo bash '$NODE_SETUP' && rm -f '$NODE_SETUP' && sudo apt-get install -y -q nodejs"
-    run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
+  # Anthropic's native installer is the recommended path (auto-updating
+  # binary, no Node dependency); bun/npm remain as fallbacks.
+  if ! run_step "Install Claude Code CLI" fetch_and_run https://claude.ai/install.sh bash; then
+    drop_last_error   # the bun fallback below decides the outcome
+    if ! run_step "Install Claude Code CLI (bun fallback)" bun install -g @anthropic-ai/claude-code; then
+      drop_last_error   # the NodeSource/npm fallback below decides the outcome
+      NODE_SETUP=$(mktemp)
+      run_step "Install Node.js (fallback)" bash -c "curl -fsSL --connect-timeout 10 --max-time 60 https://deb.nodesource.com/setup_lts.x -o '$NODE_SETUP' && sudo bash '$NODE_SETUP' && rm -f '$NODE_SETUP' && sudo apt-get install -y -q nodejs"
+      run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
+    fi
   fi
+  export PATH="$HOME/.local/bin:$PATH"
 else
   printf "${GREEN}✅${NC}  ${DIM}$(tool_version claude) (already installed)${NC}\n"
 fi

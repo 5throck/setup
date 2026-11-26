@@ -8,7 +8,7 @@
 # (default: latest). Example: BUN_VERSION=1.4.5 bash setup-mac.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
-# (curl | bash) for bun and Antigravity CLI. This is the standard official
+# (curl | bash) for bun, Claude Code, and Antigravity CLI. This is the standard official
 # install path for these tools, but it carries supply-chain risk: the
 # downloaded script runs with your user permissions before you can review it.
 # Installers are downloaded to disk first (not piped directly) and their
@@ -140,10 +140,16 @@ fi
 # ── 6. CLI tools ─────────────────────────────────────────────────────────────
 section 6 $TOTAL "CLI tools"
 if should_install claude; then
-  if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
-    drop_last_error   # the npm fallback below decides the outcome
-    run_step "Install Claude Code CLI (npm fallback)" npm install -g @anthropic-ai/claude-code
+  # Anthropic's native installer is the recommended path (auto-updating
+  # binary, no Node dependency); bun/npm remain as fallbacks.
+  if ! run_step "Install Claude Code CLI" fetch_and_run https://claude.ai/install.sh bash; then
+    drop_last_error   # the bun fallback below decides the outcome
+    if ! run_step "Install Claude Code CLI (bun fallback)" bun install -g @anthropic-ai/claude-code; then
+      drop_last_error   # the npm fallback below decides the outcome
+      run_step "Install Claude Code CLI (npm fallback)" npm install -g @anthropic-ai/claude-code
+    fi
   fi
+  export PATH="$HOME/.local/bin:$PATH"
 else
   printf "${GREEN}✅${NC}  ${DIM}$(tool_version claude) (already installed)${NC}\n"
 fi

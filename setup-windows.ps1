@@ -15,7 +15,7 @@
 # (default: latest). Example: $env:BUN_VERSION="1.4.5"; .\setup-windows.ps1
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
-# for bun, uv, and Antigravity CLI. This is the standard official install
+# for bun, uv, Claude Code, and Antigravity CLI. This is the standard official install
 # path for these tools, but it carries supply-chain risk: the downloaded
 # script runs with your permissions before you can review it. Installers are
 # downloaded to disk first (Invoke-WebRequest -OutFile, not piped directly
@@ -189,7 +189,7 @@ try {
     Start-Transcript -Path $LogFile -Append -ErrorAction Stop | Out-Null
     $transcriptStarted = $true
 } catch {
-    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (transcript 실패): $_" -ForegroundColor Yellow
+    Write-Host "  ⚠️  Could not start the log transcript: $_" -ForegroundColor Yellow
     $transcriptStarted = $false
 }
 
@@ -305,22 +305,22 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
     if ($Company) { $relaunchArgs += @('-Company', $Company) }
     $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
     if (-not $pwshCmd) {
-        Write-Host "  ℹ️  PowerShell 7이 필요합니다 — winget으로 설치합니다..." -ForegroundColor Yellow
+        Write-Host "  ℹ️  PowerShell 7 is required — installing via winget..." -ForegroundColor Yellow
         if (-not (Installed winget)) {
-            Write-Host "  ❌  winget이 없어 PowerShell 7을 자동 설치할 수 없습니다." -ForegroundColor Red
-            Write-Host "     'App Installer'를 설치하거나 https://aka.ms/powershell 에서 직접 설치하세요." -ForegroundColor Yellow
+            Write-Host "  ❌  winget not found — cannot auto-install PowerShell 7." -ForegroundColor Red
+            Write-Host "     Install 'App Installer', or install PowerShell 7 from https://aka.ms/powershell." -ForegroundColor Yellow
             Exit-Setup 1
         }
         winget install Microsoft.PowerShell --silent --accept-source-agreements --accept-package-agreements
         RefreshEnv
         $pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
         if (-not $pwshCmd) {
-            Write-Host "  ⚠️  PowerShell 7 설치 후 PATH가 갱신되지 않았습니다." -ForegroundColor Yellow
-            Write-Host "     터미널을 다시 열고 스크립트를 다시 실행하세요." -ForegroundColor Yellow
+            Write-Host "  ⚠️  PATH was not refreshed after installing PowerShell 7." -ForegroundColor Yellow
+            Write-Host "     Open a new terminal and re-run this script." -ForegroundColor Yellow
             Exit-Setup 1
         }
     }
-    Write-Host "  ℹ️  PowerShell $($PSVersionTable.PSVersion)에서 실행됨 — PowerShell 7로 자동 재실행합니다..." -ForegroundColor Cyan
+    Write-Host "  ℹ️  Running under PowerShell $($PSVersionTable.PSVersion) — relaunching under PowerShell 7..." -ForegroundColor Cyan
     & $pwshCmd.Source @relaunchArgs
     Exit-Setup $LASTEXITCODE
 }
@@ -329,9 +329,9 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
 $adminSid = [Security.Principal.SecurityIdentifier]'S-1-5-32-544'
 $isAdmin  = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole($adminSid)
 if (-not $isAdmin) {
-    Write-Host "  ⚠️  관리자 권한으로 실행되지 않았습니다." -ForegroundColor Yellow
-    Write-Host "     winget, WSL2 등 일부 설치에서 오류가 발생할 수 있습니다." -ForegroundColor Yellow
-    Write-Host "     권장: PowerShell을 관리자 권한으로 재실행하세요." -ForegroundColor Yellow
+    Write-Host "  ⚠️  Not running as Administrator." -ForegroundColor Yellow
+    Write-Host "     Some installs (winget, WSL2) may fail." -ForegroundColor Yellow
+    Write-Host "     Recommended: re-run PowerShell as Administrator." -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -340,9 +340,9 @@ if (-not $isAdmin) {
 Write-Host "  🔍  Preflight checks..." -ForegroundColor Cyan
 try {
     $null = Test-NetConnection -ComputerName 1.1.1.1 -Port 443 -WarningAction SilentlyContinue -ErrorAction Stop
-    Write-Host "  ✅  인터넷 연결 정상" -ForegroundColor Green
+    Write-Host "  ✅  Internet connection OK" -ForegroundColor Green
 } catch {
-    Write-Host "  ❌  인터넷에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도하세요." -ForegroundColor Red
+    Write-Host "  ❌  No internet connection. Check your network and retry." -ForegroundColor Red
     Exit-Setup 1
 }
 
@@ -350,18 +350,18 @@ try {
 $driveName = $PWD.Drive.Name
 $freeSpace = (Get-PSDrive -Name $driveName -ErrorAction SilentlyContinue).Free
 if ($freeSpace -and $freeSpace -lt 5368709120) {
-    Write-Host ("  ❌  디스크 여유 공간 부족 ({0:N1} GB / 5 GB 필요)" -f ($freeSpace / 1GB)) -ForegroundColor Red
+    Write-Host ("  ❌  Low disk space ({0:N1} GB free / 5 GB required)" -f ($freeSpace / 1GB)) -ForegroundColor Red
     Exit-Setup 1
 } elseif ($freeSpace) {
-    Write-Host ("  ✅  디스크 여유 공간: {0:N1} GB" -f ($freeSpace / 1GB)) -ForegroundColor Green
+    Write-Host ("  ✅  Disk space: {0:N1} GB free" -f ($freeSpace / 1GB)) -ForegroundColor Green
 }
 
 # OS version
 $osBuild = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion" -ErrorAction SilentlyContinue).CurrentBuild
 if ($osBuild -and [int]$osBuild -lt 22000) {
-    Write-Host "  ⚠️  Windows 11 권장. 현재 빌드: $osBuild (Windows 10)" -ForegroundColor Yellow
+    Write-Host "  ⚠️  Windows 11 recommended. Current build: $osBuild (Windows 10)" -ForegroundColor Yellow
 } else {
-    Write-Host "  ✅  OS 버전 확인 완료" -ForegroundColor Green
+    Write-Host "  ✅  OS version check passed" -ForegroundColor Green
 }
 
 # ── Animation helpers ─────────────────────────────────────────────────────────
@@ -582,11 +582,11 @@ if (Installed winget) {
     }
     $rawLines = winget upgrade --accept-source-agreements 2>&1 | Where-Object { $_ -is [string] }
 
-    # 헤더 구분선(-----)으로 컬럼 위치 파악
+    # Locate column positions from the header separator line (-----)
     $separatorLine = $rawLines | Where-Object { $_ -match '^[-]+\s+[-]+' } | Select-Object -First 1
     $pkgIds = @()
     if ($separatorLine) {
-        # Id 컬럼 시작 위치: 첫 번째 공백 블록 끝
+        # Id column start: end of the first whitespace block
         $idStart = $separatorLine -replace '^(\S+\s+).*', '$1' | ForEach-Object { $_.Length }
         $headerLine = $rawLines | Where-Object { $_ -match '^Name\s+Id' } | Select-Object -First 1
         if ($headerLine) {
@@ -837,40 +837,40 @@ Section 8 $TOTAL "CLI tools"
 if ((-not $Force) -and (Installed claude)) {
     Write-Host "✅  $(Get-ToolVersion claude) (already installed)" -ForegroundColor Green
 } else {
-    # On PS 5.1, 'bun install -g' may fail; fall back to npm automatically.
-    # Note: bun writes normal progress/warning output to stderr, which
-    # PowerShell jobs otherwise surface as error records (failing RunStep
-    # even on success) — merge stderr into stdout and key off $LASTEXITCODE
-    # instead, matching Install-WingetPackage's pattern.
-    $claudeInstalled = $false
-    if (Installed bun) {
-        $claudeInstalled = RunStep "Install Claude Code CLI" {
-            $out = bun install -g @anthropic-ai/claude-code 2>&1
-            $out | ForEach-Object { $_.ToString() }
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        }
+    # Anthropic's native installer is the recommended path (auto-updating
+    # binary, no Node dependency); bun/npm remain as fallbacks.
+    $claudeInstalled = Invoke-RemoteInstaller "https://claude.ai/install.ps1" {
+        param($installerPath)
+        & $installerPath
     }
-    if (-not $claudeInstalled) {
-        if (-not (Installed bun)) {
-            Write-Host "  ⚠️  bun not available — using npm directly" -ForegroundColor Yellow
-        } else {
-            Write-Host "  ⚠️  bun install failed — falling back to npm" -ForegroundColor Yellow
-        }
-        if (Installed npm) {
-            $claudeInstalled = RunStep "Install Claude Code CLI (npm fallback)" {
-                $out = npm install -g @anthropic-ai/claude-code 2>&1
+    if ($claudeInstalled) {
+        RefreshEnv
+        Write-Host "✅  Claude Code CLI installed" -ForegroundColor Green
+    } else {
+        # Invoke-RemoteInstaller doesn't record failures in $Errors; the
+        # bun/npm fallbacks below decide the outcome.
+        if (Installed bun) {
+            Write-Host "  ⚠️  native installer failed — falling back to bun" -ForegroundColor Yellow
+            $claudeInstalled = RunStep "Install Claude Code CLI (bun fallback)" {
+                $out = bun install -g @anthropic-ai/claude-code 2>&1
                 $out | ForEach-Object { $_.ToString() }
                 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             }
-            RefreshEnv
-            if ($claudeInstalled) {
-                # The failed first attempt is already in $Errors; a successful
-                # fallback means the step ultimately succeeded — drop it.
-                $Errors.Remove("Install Claude Code CLI")
-            }
         } else {
-            Write-Host "  ❌  Neither bun nor npm available — cannot install Claude Code CLI" -ForegroundColor Red
-            $Errors.Add("Install Claude Code CLI")
+            Write-Host "  ⚠️  bun not available — trying npm directly" -ForegroundColor Yellow
+        }
+        if (-not $claudeInstalled) {
+            if (Installed npm) {
+                $claudeInstalled = RunStep "Install Claude Code CLI (npm fallback)" {
+                    $out = npm install -g @anthropic-ai/claude-code 2>&1
+                    $out | ForEach-Object { $_.ToString() }
+                    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+                }
+                RefreshEnv
+            } else {
+                Write-Host "  ❌  Native installer, bun, and npm all unavailable — cannot install Claude Code CLI" -ForegroundColor Red
+                $Errors.Add("Install Claude Code CLI")
+            }
         }
     }
 }

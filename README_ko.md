@@ -75,5 +75,5 @@ $env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPol
 설치 스크립트가 변경될 때마다 다음이 실행됩니다.
 - **docs-sync** — `SETUP.md`에 문서화된 플래그가 스크립트와 일치하는지 확인
 - **shellcheck** — `setup-linux.sh` / `setup-mac.sh` / `setup-lib.sh` 린트
-- **linux-dry-run** — Ubuntu 컨테이너에서 `setup-linux.sh`를 실제로 실행한 뒤 `setup-common.ts --json`으로 검증
+- **linux-integration** — Ubuntu 컨테이너에서 `setup-linux.sh`를 실제로 실행한 뒤 `setup-common.ts --json`으로 검증
 - **windows-syntax-check** — `setup-windows.ps1`을 구문 파싱만 수행 (실행하지 않음)

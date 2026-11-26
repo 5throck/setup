@@ -75,5 +75,5 @@ Some tools are installed via remote installer scripts, depending on platform —
 Every change to a setup script triggers:
 - **docs-sync** — `SETUP.md` flags must match the scripts
 - **shellcheck** — lint `setup-linux.sh` / `setup-mac.sh` / `setup-lib.sh`
-- **linux-dry-run** — actually runs `setup-linux.sh` in an Ubuntu container, then `setup-common.ts --json`
+- **linux-integration** — actually runs `setup-linux.sh` in an Ubuntu container, then `setup-common.ts --json`
 - **windows-syntax-check** — parses `setup-windows.ps1` for syntax errors (no execution)

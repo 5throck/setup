@@ -30,6 +30,14 @@ on:
       - "README_ko.md"
       - ".github/workflows/test-setup.yml"
 
+# Pushing a branch with an open PR fires this workflow twice for the same
+# commit (push + pull_request events), doubling every run — and linux-dry-run
+# is a full install. Key the group on the head branch so the newer of the two
+# cancels the older instead of both queueing full installs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   docs-sync:
     runs-on: ubuntu-latest

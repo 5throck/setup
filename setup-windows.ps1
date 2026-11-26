@@ -844,6 +844,15 @@ if ((-not $Force) -and (Installed claude)) {
         & $installerPath
     }
     if ($claudeInstalled) {
+        # The native installer drops claude.exe in %USERPROFILE%\.local\bin but
+        # does not edit PATH itself (the docs route PATH problems to manual
+        # fixing) — register it at User scope so new shells and verification
+        # find it, mirroring the bun section above.
+        $claudeBinDir = "$env:USERPROFILE\.local\bin"
+        $existingUserPath = [System.Environment]::GetEnvironmentVariable("PATH", "User")
+        if ($existingUserPath -notlike "*$claudeBinDir*") {
+            [System.Environment]::SetEnvironmentVariable("PATH", "$existingUserPath;$claudeBinDir", "User")
+        }
         RefreshEnv
         Write-Host "✅  Claude Code CLI installed" -ForegroundColor Green
     } else {

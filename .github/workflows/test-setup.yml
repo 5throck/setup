@@ -108,9 +108,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run setup-windows.ps1 (via Windows PowerShell 5.1 to exercise the pwsh relaunch)
-        run: |
-          powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
-          Write-Host "outer 5.1 exit code: $LASTEXITCODE"
+        run: powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
       - name: Run setup-common.ts verification
         shell: pwsh
         run: |

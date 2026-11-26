@@ -10,6 +10,9 @@ on:
       - "setup-lib.sh"
       - "check-docs-sync.sh"
       - "SETUP.md"
+      - "install.md"
+      - "README.md"
+      - "README_ko.md"
       - ".github/workflows/test-setup.yml"
   pull_request:
     paths:
@@ -20,6 +23,9 @@ on:
       - "setup-lib.sh"
       - "check-docs-sync.sh"
       - "SETUP.md"
+      - "install.md"
+      - "README.md"
+      - "README_ko.md"
       - ".github/workflows/test-setup.yml"
 
 jobs:

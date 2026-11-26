@@ -540,7 +540,9 @@ function Install-WingetPackage($Id, $Label) {
 }
 
 # ── Header ────────────────────────────────────────────────────────────────────
-Clear-Host
+# Clear-Host touches the console buffer, which does not exist when output is
+# redirected (CI) — it throws "The handle is invalid" there.
+if (-not [Console]::IsOutputRedirected) { Clear-Host }
 Write-Host "  ╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "  ║     Workshop Setup — Windows              ║" -ForegroundColor Cyan
 Write-Host "  ╚══════════════════════════════════════════╝" -ForegroundColor Cyan
@@ -962,8 +964,13 @@ if ($Errors.Count -eq 0) {
 Write-Host "  ══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-# Exit non-zero on failures (parity with setup-linux.sh / setup-mac.sh)
+# Exit non-zero on failures (parity with setup-linux.sh / setup-mac.sh).
+# Exit 0 explicitly on success: without it the process exit code is whatever
+# the pwsh version makes of an implicit end — 7.6.x propagated the last
+# native $LASTEXITCODE (gh auth status above), which failed the CI
+# windows-integration job even though every step succeeded (7.7+ exits 0).
 if ($Errors.Count -gt 0) { exit 1 }
+exit 0
 
 # ════════════════════════════════════════════════════════════════════════════════
 } finally {

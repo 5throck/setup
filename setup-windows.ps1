@@ -635,7 +635,7 @@ if (Installed winget) {
     }
 } else {
     Write-Host "  ❌  winget not found. Install 'App Installer' from the Microsoft Store." -ForegroundColor Red
-    exit 1
+    Exit-Setup 1
 }
 
 RefreshEnv
@@ -876,6 +876,12 @@ if ((-not $Force) -and (Installed claude)) {
                     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
                 }
                 RefreshEnv
+                if ($claudeInstalled) {
+                    # The failed bun fallback is already in $Errors; a successful
+                    # npm fallback means the step ultimately succeeded — drop it
+                    # (bash scripts' drop_last_error equivalent).
+                    $Errors.Remove("Install Claude Code CLI (bun fallback)")
+                }
             } else {
                 Write-Host "  ❌  Native installer, bun, and npm all unavailable — cannot install Claude Code CLI" -ForegroundColor Red
                 $Errors.Add("Install Claude Code CLI")

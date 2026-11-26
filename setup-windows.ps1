@@ -309,8 +309,11 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         }
     }
     Write-Host "  ℹ️  PowerShell $($PSVersionTable.PSVersion)에서 실행됨 — PowerShell 7로 자동 재실행합니다..." -ForegroundColor Cyan
-    & $pwshCmd.Source @relaunchArgs
-    exit $LASTEXITCODE
+    # Start-Process -PassThru gives an independent reading of the child's
+    # exit code, logged so CI failures can be attributed to a layer.
+    $relaunched = Start-Process -FilePath $pwshCmd.Source -ArgumentList $relaunchArgs -Wait -PassThru -NoNewWindow
+    Write-Host "  inner pwsh exit code: $($relaunched.ExitCode)"
+    exit $relaunched.ExitCode
 }
 
 # ── Admin check (locale-independent, via BUILTIN\Administrators SID) ─────────

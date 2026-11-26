@@ -715,7 +715,10 @@ if ((-not (Installed bun)) -or $Force) {
     if ($bunPin -eq "latest") {
         try {
             $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/oven-sh/bun/releases/latest" -UseBasicParsing -TimeoutSec 10
-            if ($rel.tag_name) { $bunPin = $rel.tag_name }
+            # Only a well-formed tag is trusted (parity with the bash
+            # resolver's format guard); anything else falls back to
+            # install.ps1's own "latest" resolution.
+            if ($rel.tag_name -match '^bun-v\d+\.\d+\.\d+$') { $bunPin = $rel.tag_name }
         } catch { }
     }
     # Full install: use npm fallback when PS 5.1 cannot download bun.sh/install.ps1

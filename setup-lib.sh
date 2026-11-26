@@ -221,11 +221,15 @@ install_bun() {
         run_step "Install bun ($BUN_VERSION)" bash "$tmp" "$pin"
       else
         # Resolve the latest tag up front so the installed version is explicit
-        # and logged (same pattern as install_gitleaks); the installer's own
-        # "latest" resolution is the fallback when the API is unavailable.
+        # and logged (same pattern as install_gitleaks). Only a well-formed
+        # tag is trusted: CI once saw the API serve a single-line response
+        # where this pipeline yielded the release "url" instead of the tag,
+        # which 404'd the install. Anything malformed — including API
+        # failure/rate limits — falls back to the installer's own "latest"
+        # resolution.
         local latest_tag
         latest_tag=$(resolve_latest_bun_tag)
-        if [[ -n "$latest_tag" ]]; then
+        if [[ "$latest_tag" =~ ^bun-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
           run_step "Install bun ($latest_tag)" bash "$tmp" "$latest_tag"
         else
           run_step "Install bun (latest)" bash "$tmp"

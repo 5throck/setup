@@ -195,6 +195,15 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
     Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
 } -ErrorAction SilentlyContinue
 
+# Exit with an explicit code. The PowerShell.Exiting subscriber above
+# corrupts the process exit code during teardown on Windows PowerShell 5.1 —
+# a script's "exit 0" can surface as process exit 1/2/5 (measured) — so
+# subscribers are dropped before every intentional exit.
+function Exit-Setup($Code) {
+    Get-EventSubscriber | Unregister-Event -Force -ErrorAction SilentlyContinue
+    exit $Code
+}
+
 # ── Execution policy guard ────────────────────────────────────────────────────
 # Prevents "running scripts is disabled on this system".
 # Effective policy = first defined scope in precedence order:
@@ -216,7 +225,7 @@ if (-not $allowsScripts) {
         Write-Host "       1. Ask IT to enable: Computer Configuration > Administrative Templates" -ForegroundColor DarkGray
         Write-Host "          > Windows Components > Windows PowerShell > Turn on Script Execution" -ForegroundColor DarkGray
         Write-Host "       2. Inspect applied policies: gpresult /R" -ForegroundColor DarkGray
-        exit 1
+        Exit-Setup 1
     }
     Write-Host "  ⚠️  Execution policy is '$effectivePolicy' — changing to 'RemoteSigned'..." -ForegroundColor Yellow
     # Preferred fix: persistent, per-user (no elevation required).
@@ -243,7 +252,7 @@ if (-not $allowsScripts) {
         Write-Host "     Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned" -ForegroundColor Yellow
         Write-Host "     Diagnose scopes with:" -ForegroundColor Yellow
         Write-Host "     Get-ExecutionPolicy -List" -ForegroundColor Yellow
-        exit 1
+        Exit-Setup 1
     }
 }
 
@@ -297,7 +306,7 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         if (-not (Installed winget)) {
             Write-Host "  ❌  winget이 없어 PowerShell 7을 자동 설치할 수 없습니다." -ForegroundColor Red
             Write-Host "     'App Installer'를 설치하거나 https://aka.ms/powershell 에서 직접 설치하세요." -ForegroundColor Yellow
-            exit 1
+            Exit-Setup 1
         }
         winget install Microsoft.PowerShell --silent --accept-source-agreements --accept-package-agreements
         RefreshEnv
@@ -305,12 +314,12 @@ if ($PSVersionTable.PSVersion.Major -lt 7) {
         if (-not $pwshCmd) {
             Write-Host "  ⚠️  PowerShell 7 설치 후 PATH가 갱신되지 않았습니다." -ForegroundColor Yellow
             Write-Host "     터미널을 다시 열고 스크립트를 다시 실행하세요." -ForegroundColor Yellow
-            exit 1
+            Exit-Setup 1
         }
     }
     Write-Host "  ℹ️  PowerShell $($PSVersionTable.PSVersion)에서 실행됨 — PowerShell 7로 자동 재실행합니다..." -ForegroundColor Cyan
     & $pwshCmd.Source @relaunchArgs
-    exit $LASTEXITCODE
+    Exit-Setup $LASTEXITCODE
 }
 
 # ── Admin check (locale-independent, via BUILTIN\Administrators SID) ─────────
@@ -331,7 +340,7 @@ try {
     Write-Host "  ✅  인터넷 연결 정상" -ForegroundColor Green
 } catch {
     Write-Host "  ❌  인터넷에 연결할 수 없습니다. 네트워크를 확인하고 다시 시도하세요." -ForegroundColor Red
-    exit 1
+    Exit-Setup 1
 }
 
 # Disk space (5 GB minimum)
@@ -339,7 +348,7 @@ $driveName = $PWD.Drive.Name
 $freeSpace = (Get-PSDrive -Name $driveName -ErrorAction SilentlyContinue).Free
 if ($freeSpace -and $freeSpace -lt 5368709120) {
     Write-Host ("  ❌  디스크 여유 공간 부족 ({0:N1} GB / 5 GB 필요)" -f ($freeSpace / 1GB)) -ForegroundColor Red
-    exit 1
+    Exit-Setup 1
 } elseif ($freeSpace) {
     Write-Host ("  ✅  디스크 여유 공간: {0:N1} GB" -f ($freeSpace / 1GB)) -ForegroundColor Green
 }
@@ -540,7 +549,9 @@ function Install-WingetPackage($Id, $Label) {
 }
 
 # ── Header ────────────────────────────────────────────────────────────────────
-Clear-Host
+# Clear-Host touches the console buffer, which does not exist when output is
+# redirected (CI) — it throws "The handle is invalid" there.
+if (-not [Console]::IsOutputRedirected) { Clear-Host }
 Write-Host "  ╔══════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "  ║     Workshop Setup — Windows              ║" -ForegroundColor Cyan
 Write-Host "  ╚══════════════════════════════════════════╝" -ForegroundColor Cyan
@@ -704,7 +715,10 @@ if ((-not (Installed bun)) -or $Force) {
     if ($bunPin -eq "latest") {
         try {
             $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/oven-sh/bun/releases/latest" -UseBasicParsing -TimeoutSec 10
-            if ($rel.tag_name) { $bunPin = $rel.tag_name }
+            # Only a well-formed tag is trusted (parity with the bash
+            # resolver's format guard); anything else falls back to
+            # install.ps1's own "latest" resolution.
+            if ($rel.tag_name -match '^bun-v\d+\.\d+\.\d+$') { $bunPin = $rel.tag_name }
         } catch { }
     }
     # Full install: use npm fallback when PS 5.1 cannot download bun.sh/install.ps1
@@ -962,8 +976,11 @@ if ($Errors.Count -eq 0) {
 Write-Host "  ══════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
 
-# Exit non-zero on failures (parity with setup-linux.sh / setup-mac.sh)
-if ($Errors.Count -gt 0) { exit 1 }
+# Exit non-zero on failures (parity with setup-linux.sh / setup-mac.sh);
+# exit 0 explicitly on success so the process always reports the code the
+# script chose.
+if ($Errors.Count -gt 0) { Exit-Setup 1 }
+Exit-Setup 0
 
 # ════════════════════════════════════════════════════════════════════════════════
 } finally {

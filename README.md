@@ -76,4 +76,6 @@ Every change to a setup script triggers:
 - **docs-sync** — `SETUP.md` flags must match the scripts
 - **shellcheck** — lint `setup-linux.sh` / `setup-mac.sh` / `setup-lib.sh`
 - **linux-integration** — actually runs `setup-linux.sh` in an Ubuntu container, then `setup-common.ts --json`
+- **macos-integration** — actually runs `setup-mac.sh` on a macOS (ARM) runner under the stock bash 3.2, then `setup-common.ts --json`
+- **windows-integration** — actually runs `setup-windows.ps1` on a Windows runner (launched via Windows PowerShell 5.1, so the auto-relaunch to PowerShell 7 is exercised), then `setup-common.ts --json`
 - **windows-syntax-check** — parses `setup-windows.ps1` for syntax errors (no execution)

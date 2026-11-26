@@ -88,6 +88,33 @@ jobs:
         run: su runner -c "bash -lc 'export PATH=\$HOME/.bun/bin:\$PATH && bun setup-common.ts --json'"
         working-directory: ${{ github.workspace }}
 
+  macos-integration:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run setup-mac.sh
+        # macos-latest's stock bash is 3.2, so this also exercises the
+        # script's macOS-bash compatibility (no bash 4+ syntax allowed).
+        run: bash setup-mac.sh
+      - name: Run setup-common.ts verification
+        run: |
+          export PATH="$HOME/.bun/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+          bun setup-common.ts --json
+
+  windows-integration:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run setup-windows.ps1 (via Windows PowerShell 5.1 to exercise the pwsh relaunch)
+        run: powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+      - name: Run setup-common.ts verification
+        shell: pwsh
+        run: |
+          $env:PATH = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+          bun setup-common.ts --json
+
   windows-syntax-check:
     runs-on: windows-latest
     timeout-minutes: 10

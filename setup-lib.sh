@@ -32,6 +32,7 @@ while [ $_i -lt ${#_args[@]} ]; do
     --company)
       _i=$((_i + 1))
       COMPANY="${_args[$_i]:-}"
+      [ -z "$COMPANY" ] && printf "${YELLOW}⚠️ ${NC}  --company requires a value — skipping company-specific install.\n"
       ;;
   esac
   _i=$((_i + 1))
@@ -97,6 +98,15 @@ installed() { command -v "$1" &>/dev/null; }
 # Skip an install step unless the tool is missing or --force was passed.
 should_install() {
   ! installed "$1" || [[ $FORCE -eq 1 ]]
+}
+
+# Remove the most recent ERRORS entry: a failed intermediate attempt whose
+# fallback succeeded must not count as a failed run (run_step records the
+# failure before the caller gets a chance to fall back).
+drop_last_error() {
+  local n=${#ERRORS[@]}
+  [ "$n" -eq 0 ] && return 0
+  unset "ERRORS[$((n - 1))]"
 }
 
 # First line of `<tool> --version`, prefixed with the tool name unless the

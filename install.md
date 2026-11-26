@@ -31,7 +31,7 @@ Tools installed: base tools (Git everywhere; PowerShell 7 + Windows Terminal on 
 4. **No secrets**: never type or guess passwords, API keys, or tokens on the user's behalf. Logins (`gh auth login`, `claude login`, `codex login`) and subscription checks are done **by the user personally**. If a sudo/administrator password prompt appears, tell the user to enter it themselves.
 5. **Steps that need administrator/sudo privileges**: tell the user before running them and get confirmation. If privileges are unavailable, skip that step and report it.
 6. **Idempotency**: skip tools that are already installed (check with `command -v` / `Get-Command`). The scripts themselves also skip installed items, but add forced reinstall (`--force`/`-Force`) only when the user asks for it. Re-running must be safe.
-7. **No `curl | bash` / `irm | iex`**: installer scripts are downloaded to a temporary file, their SHA-256 is printed and logged, and then they are executed (each script in this repository follows the same approach; there is no automatic comparison against an expected hash, so the hash is an audit record). Do not arbitrarily rewrite commands in this document into piped form.
+7. **No `curl | bash` / `irm | iex`**: remote installers are downloaded to a temporary file first and only then executed. Installers fetched through the shared helpers (`fetch_and_run` / `Invoke-RemoteInstaller` — bun, uv, Codex CLI, Antigravity CLI, `--company` scripts) print and log their SHA-256; there is no comparison against an expected hash, so the hash is an audit record. A few downloads are verified differently instead: the macOS Codex Desktop DMG is checked against OpenAI's code-signing identity, and the Windows Chrome MSI against its Authenticode signature (the Linux Chrome .deb and the NodeSource bootstrap script rely on the vendor's own packaging). Do not arbitrarily rewrite commands in this document into piped form.
 8. **Pin versions only when the user asks**: by default, install the latest release. If the user says they need a reproducible environment, use the `BUN_VERSION` / `UV_VERSION` / `PYTHON_VERSION` environment variables (§4-5). `PYTHON_VERSION` is macOS/Linux only (Windows installs Python 3.13 as a fixed version), and `UV_VERSION` on macOS is not a full pin because Homebrew installs the latest uv.
 9. **On a dry-run request, follow §0-1 with top priority** and change nothing.
 10. On failure, record the log, continue with the next independent task, and report the list of failures all at once at the end.
@@ -475,7 +475,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 Setup Guide 4/5 — How to verify
 >
 > - The final check is one command: `bun setup-common.ts`.
-> - It prints a verification table of every tool with ✅/❌, including minimum-version checks for `bun`/`uv`, a platform-aware Python check, and login status for `claude`/`codex`/`gh`.
+> - It prints a verification table of every tool with ✅/❌, including minimum-version checks for `bun`/`uv`, a platform-aware Python check, and login status for `claude`/`codex`/`gh` (login rows show ⚠️ when not logged in — they never turn ❌).
 > - **All required rows must show ✅** — that is the "ready for the workshop" signal.
 > - A ❌ right after install is usually just a PATH problem: restart the terminal and run the check again.
 > - Machine-readable output (for scripting): `bun setup-common.ts --json`.
@@ -486,7 +486,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 사용법 안내 4/5 — 검증하는 법
 >
 > - 최종 확인은 명령 하나입니다: `bun setup-common.ts`.
-> - 모든 도구의 ✅/❌ 검증 표를 출력합니다. `bun`/`uv` 최소 버전 검사, OS별 파이썬 검사, `claude`/`codex`/`gh` 로그인 상태도 함께 표시됩니다.
+> - 모든 도구의 ✅/❌ 검증 표를 출력합니다. `bun`/`uv` 최소 버전 검사, OS별 파이썬 검사, `claude`/`codex`/`gh` 로그인 상태도 함께 표시됩니다(로그인 행은 미로그인 시 ⚠️로 표시되며 ❌가 되지 않습니다).
 > - **필수 행이 모두 ✅** 여야 워크샵 준비 완료입니다.
 > - 설치 직후의 ❌ 는 대부분 PATH 문제입니다: 터미널을 다시 열고 검증을 한 번 더 실행해 보세요.
 > - 스크립트용 기계 판독 출력: `bun setup-common.ts --json`.
@@ -497,7 +497,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 セットアップ案内 4/5 — 検証の方法
 >
 > - 最終確認はコマンド 1 つです: `bun setup-common.ts`。
-> - すべてのツールの ✅/❌ 検証テーブルを表示します。`bun`/`uv` の最低バージョン検査、OS ごとの Python 検査、`claude`/`codex`/`gh` のログイン状態も一緒に表示されます。
+> - すべてのツールの ✅/❌ 検証テーブルを表示します。`bun`/`uv` の最低バージョン検査、OS ごとの Python 検査、`claude`/`codex`/`gh` のログイン状態も一緒に表示されます(ログイン行は未ログイン時に ⚠️ 表示で、❌ にはなりません)。
 > - **必須の行がすべて ✅** であることが「ワークショップ準備完了」の合図です。
 > - インストール直後の ❌ は、たいてい PATH の問題です: ターミナルを開き直して、もう一度検証を実行してみてください。
 > - スクリプト向けの機械可読出力: `bun setup-common.ts --json`。
@@ -508,7 +508,7 @@ Source documents: [SETUP.md](SETUP.md) · [SETUP_CHECKLIST.md](SETUP_CHECKLIST.m
 > ## 📘 Guía de uso 4/5 — Cómo verificar
 >
 > - La verificación final es un solo comando: `bun setup-common.ts`.
-> - Imprime una tabla de verificación de todas las herramientas con ✅/❌, incluyendo comprobaciones de versión mínima de `bun`/`uv`, la comprobación de Python según la plataforma y el estado de sesión de `claude`/`codex`/`gh`.
+> - Imprime una tabla de verificación de todas las herramientas con ✅/❌, incluyendo comprobaciones de versión mínima de `bun`/`uv`, la comprobación de Python según la plataforma y el estado de sesión de `claude`/`codex`/`gh` (las filas de sesión muestran ⚠️ si no hay sesión iniciada — nunca ❌).
 > - **Todas las filas obligatorias deben mostrar ✅** — esa es la señal de "listo para el taller".
 > - Un ❌ justo después de instalar suele ser solo un problema de PATH: reinicia la terminal y ejecuta la verificación de nuevo.
 > - Salida legible por máquina (para scripts): `bun setup-common.ts --json`.
@@ -576,8 +576,8 @@ Wrap up the user guidance ("That's all the guidance" — in the §3-0 language),
 - `--docker` (Windows `-Docker`): additionally install Docker Desktop
 - `-WSL2` (Windows only): install WSL2 (**a restart is required** — tell the user in advance and get their consent)
 - `--force` (Windows `-Force`): force reinstall even tools that are already installed (default is to skip)
-- `--company <name>`: install organization-specific extra tools (only when the user belongs to an organization and instructs it)
-- `--help`: print usage
+- `--company <name>` (Windows `-Company <name>`): install organization-specific extra tools (only when the user belongs to an organization and instructs it)
+- `--help` (Windows `-Help`): print usage
 
 The principle is to run the default install **with no flags**. Ask the user before running optional tools, and attach only the ones selected.
 
@@ -690,7 +690,7 @@ This table includes ✅/❌ for every tool, minimum-version checks for `bun`/`uv
 - If there are ❌ items:
   1. Possible "PATH problem" → try re-verifying in a new terminal (including the `$env:Path` reload in §4-4).
   2. If still ❌, apply the matching fix from the **Troubleshooting** section of `SETUP.md` (see the §8 table).
-  3. A login-status ❌ is classified as a user action (§5-2) and is not counted as an install failure.
+  3. Login status is displayed as ⚠️ (optional), never ❌ — it is a user action (§5-2) and does not affect the verification verdict.
 - Offline/corporate network: if downloading the remote install scripts (bun, uv, Codex CLI, Antigravity CLI) is blocked, do not proceed with installation; report it as "user action needed (proxy setup or manual install)". Do not substitute an arbitrary mirror/fork.
 
 ---
@@ -724,7 +724,7 @@ bun setup-common.ts   →   if everything is ✅, run claude / codex / agy in a 
 | Symptom | Action |
 |---|---|
 | `bun: command not found` after install | Restart the terminal. macOS/Linux: `export PATH="$HOME/.bun/bin:$PATH"`. Windows: bun is registered in the User PATH automatically, so check in a new terminal |
-| `claude: command not found` (after bun install) | The script automatically retries with an npm fallback. If it persists, check `bun pm ls -g` and add the bin directory to PATH |
+| `claude: command not found` (after bun install) | The script automatically retries with an npm fallback (on Linux it installs Node.js from NodeSource first if npm is missing; on macOS/Windows the fallback runs only when npm is already present). If it persists, check `bun pm ls -g` and add the bin directory to PATH |
 | `codex: command not found` | The script installs a standalone binary. Restart the terminal to pick up `~/.local/bin` (Linux) or the winget links dir (Windows) |
 | `agy: command not found` | The Antigravity CLI installs to `~/.local/bin` or `/usr/local/bin`. `source ~/.bashrc` or restart the terminal |
 | Windows: `execution of scripts is disabled` | Start with `powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1`. Permanent per-user setting: `Set-ExecutionPolicy RemoteSigned -Scope CurrentUser`. If it is **Group Policy (MachinePolicy/UserPolicy)**, it cannot be changed locally — contact IT. A downloaded `.ps1` may need `Unblock-File` |
@@ -739,6 +739,6 @@ bun setup-common.ts   →   if everything is ✅, run claude / codex / agy in a 
 ## 9. Maintaining this document
 
 - Install commands and flags use `SETUP.md` as the **source of truth**. Do not duplicate versions into this document (versions in tables are example values at the time of writing).
-- If a flag in `SETUP.md` changes, update §4-1, §4-2 to 4-5, §6, and §8 of this document **together**. `check-docs-sync.sh` and CI (docs-sync in `.github/workflows/test-setup.yml`) check only the sync of `SETUP.md`/`SETUP_ko.md`; this document is not checked.
+- If a flag in `SETUP.md` changes, update §4-1, §4-2 to 4-5, §6, and §8 of this document **together**. `check-docs-sync.sh` and CI (docs-sync in `.github/workflows/test-setup.yml`) check the flag sync of `SETUP.md`/`SETUP_ko.md` and the option flags documented in §4-1/§6-1 of this document; the prose of this document is maintained manually.
 - If an install target tool is added, add one line each to the §0 tool list, the §1-3 scan list, and the §5-1 manual-install table.
 - **To change the set of guidance languages**: update the mapping table in §3-0 and the language blocks in §3-2 to 3-6 together. Keeping English as the default (fallback) is a rule of this document.

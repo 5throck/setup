@@ -138,7 +138,7 @@ fi
 
 # ── 3. Runtime: bun ───────────────────────────────────────────────────────────
 section 3 $TOTAL "Runtime: bun"
-install_bun "$HOME/.bashrc"
+install_bun "$HOME/.bashrc" "$HOME/.zshrc"
 
 # ── 4. Runtime: python3 ───────────────────────────────────────────────────────
 section 4 $TOTAL "Runtime: python3"
@@ -175,8 +175,9 @@ fi
 section 6 $TOTAL "CLI tools"
 if should_install claude; then
   if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
-    run_step "Install Node.js (fallback)" bash -c \
-      'curl -fsSL --connect-timeout 10 --max-time 60 https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
+    drop_last_error   # the npm fallback below decides the outcome
+    NODE_SETUP=$(mktemp)
+    run_step "Install Node.js (fallback)" bash -c "curl -fsSL --connect-timeout 10 --max-time 60 https://deb.nodesource.com/setup_lts.x -o '$NODE_SETUP' && sudo bash '$NODE_SETUP' && rm -f '$NODE_SETUP' && sudo apt-get install -y -q nodejs"
     run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
   fi
 else
@@ -203,11 +204,16 @@ fi
 section 7 $TOTAL "Desktop apps"
 if installed google-chrome || installed google-chrome-stable; then
   printf "${GREEN}✅${NC}  Google Chrome ${DIM}(already installed)${NC}\n"
+elif [ "$(uname -m)" != "x86_64" ]; then
+  # Google publishes no arm64 .deb for Linux — guide a manual install instead
+  # of failing on the amd64-only download.
+  printf "${YELLOW}⚠️ ${NC}  Google Chrome — no arm64 build for Linux; install manually: ${CYAN}https://www.google.com/chrome${NC}\n"
 else
+  CHROME_DEB=$(mktemp)
   run_step "Download Chrome .deb" bash -c \
-    'curl -fsSL --retry 3 --connect-timeout 10 --max-time 600 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb'
+    "curl -fsSL --retry 3 --connect-timeout 10 --max-time 600 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o '$CHROME_DEB'"
   run_step "Install Google Chrome" bash -c \
-    'sudo dpkg -i /tmp/chrome.deb || sudo apt-get install -f -y -q; rm -f /tmp/chrome.deb'
+    "sudo dpkg -i '$CHROME_DEB' || sudo apt-get install -f -y -q; rm -f '$CHROME_DEB'"
 fi
 
 printf "${YELLOW}⚠️ ${NC}  Claude Desktop — check availability at ${CYAN}https://claude.ai/download${NC}\n"
@@ -229,7 +235,7 @@ if [[ " $* " == *" --wezterm "* ]]; then
   if should_install wezterm; then
     run_step "Add WezTerm repo" bash -c '
       curl -fsSL --connect-timeout 10 --max-time 60 https://apt.fury.io/wez/gpg.key \
-        | sudo gpg --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
+        | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
       echo "deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *" \
         | sudo tee /etc/apt/sources.list.d/wezterm.list
       sudo apt-get update -q'

@@ -109,7 +109,10 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
         Unblock-File -Path $tmp -ErrorAction SilentlyContinue
         $hash = (Get-FileHash -Path $tmp -Algorithm SHA256).Hash
         Write-Host "     installer sha256: $hash" -ForegroundColor DarkGray
-        & $Runner $tmp
+        # Discard the runner's output: anything it writes to the output stream
+        # flows into this function's return value and would turn the caller's
+        # boolean into an array (truthy even when $false is appended last).
+        $null = & $Runner $tmp
         return $true
     } catch {
         Write-Host "  ⚠️  Installer download/run failed: $_" -ForegroundColor Yellow
@@ -534,7 +537,7 @@ function Install-WingetPackage($Id, $Label) {
             if ($LASTEXITCODE -ne 0) {
                 winget list --id $pkgId -e --accept-source-agreements 2>&1 | Out-Null
                 if ($LASTEXITCODE -ne 0) {
-                    if ("$out" -match '해시|hash') {
+                    if ("$out" -match '해시|hash|ハッシュ') {
                         winget source update 2>&1 | Out-Null
                         $out = winget install --id $pkgId -e --silent --accept-source-agreements --accept-package-agreements 2>&1
                         $out | ForEach-Object { $_.ToString() }
@@ -591,7 +594,7 @@ if (Installed winget) {
         }
         $dataLines = $rawLines | Where-Object {
             $_ -notmatch '^[-]' -and
-            $_ -notmatch '^Name\s' -and
+            $_ -notmatch '^(Name|이름|名前|Nombre)\s' -and
             $_ -notmatch '^\s*$' -and
             $_ -notmatch '^\d+ upgrades?' -and
             $_ -notmatch 'upgrades available'
@@ -689,6 +692,9 @@ if ($WSL2) {
 # ── 5. Runtime: bun ───────────────────────────────────────────────────────────
 Section 5 $TOTAL "Runtime: bun"
 $bunBinPath = "$env:USERPROFILE\.bun\bin"
+# Local to this section: a failed in-place update retries only bun's full
+# install — never mutate the global $Force or every later tool reinstalls.
+$bunFullInstall = $false
 
 if ((-not $Force) -and (Installed bun)) {
     # bun already present — update to latest (parity with bash scripts' `bun upgrade`)
@@ -703,10 +709,10 @@ if ((-not $Force) -and (Installed bun)) {
         Write-Host "✅  bun $(bun --version) (already installed & up-to-date)" -ForegroundColor Green
     } else {
         Write-Host "  ⚠️  bun update failed — will retry full install" -ForegroundColor Yellow
-        $Force = $true  # fall through to full install below
+        $bunFullInstall = $true  # fall through to full install below
     }
 }
-if ((-not (Installed bun)) -or $Force) {
+if ((-not (Installed bun)) -or $Force -or $bunFullInstall) {
     # Resolve the latest release tag up front so the installed version is
     # explicit and logged (parity with the bash scripts' resolve_latest_bun_tag);
     # fall back to install.ps1's own "latest" resolution if the API is
@@ -857,6 +863,11 @@ if ((-not $Force) -and (Installed claude)) {
                 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
             }
             RefreshEnv
+            if ($claudeInstalled) {
+                # The failed first attempt is already in $Errors; a successful
+                # fallback means the step ultimately succeeded — drop it.
+                $Errors.Remove("Install Claude Code CLI")
+            }
         } else {
             Write-Host "  ❌  Neither bun nor npm available — cannot install Claude Code CLI" -ForegroundColor Red
             $Errors.Add("Install Claude Code CLI")

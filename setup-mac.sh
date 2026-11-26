@@ -67,8 +67,16 @@ TOTAL=8
 # ── 1. Homebrew ───────────────────────────────────────────────────────────────
 section 1 $TOTAL "Package manager (Homebrew)"
 if installed brew; then
-  run_step "brew update & upgrade" brew upgrade --quiet
+  run_step "brew upgrade" brew upgrade --quiet
 else
+  # Homebrew's installer runs non-interactively when stdin isn't a terminal
+  # (e.g. under an agent), and then requires an already-authenticated sudo —
+  # pre-authenticate here in the foreground so the backgrounded installer can
+  # complete. The password is the user's to type, never the agent's.
+  if ! sudo -n true 2>/dev/null; then
+    printf "${CYAN}🔑  Administrator (sudo) access is required. Enter your password:${NC}\n"
+    sudo -v || { printf "${RED}❌  sudo authentication failed. Exiting.${NC}\n"; exit 1; }
+  fi
   run_step "Install Homebrew" fetch_and_run \
     https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh bash
   add_brew_shellenv() { # eval + persist to .zprofile (idempotent)
@@ -132,8 +140,10 @@ fi
 # ── 6. CLI tools ─────────────────────────────────────────────────────────────
 section 6 $TOTAL "CLI tools"
 if should_install claude; then
-  run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code \
-    || run_step "Install Claude Code CLI (npm fallback)" npm install -g @anthropic-ai/claude-code
+  if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
+    drop_last_error   # the npm fallback below decides the outcome
+    run_step "Install Claude Code CLI (npm fallback)" npm install -g @anthropic-ai/claude-code
+  fi
 else
   printf "${GREEN}✅${NC}  ${DIM}$(tool_version claude) (already installed)${NC}\n"
 fi
@@ -216,8 +226,10 @@ install_codex_desktop() {
 if codex_desktop_installed; then
   printf "${GREEN}✅${NC}  Codex Desktop ${DIM}(already installed)${NC}\n"
 else
-  run_step "Install Codex Desktop App" install_codex_desktop \
-    || printf "${YELLOW}⚠️ ${NC}  Codex Desktop — install manually by running: ${CYAN}codex app${NC}\n"
+  if ! run_step "Install Codex Desktop App" install_codex_desktop; then
+    drop_last_error   # manual-install guidance below — same class as Antigravity/Mark, not a hard failure
+    printf "${YELLOW}⚠️ ${NC}  Codex Desktop — install manually by running: ${CYAN}codex app${NC}\n"
+  fi
 fi
 
 if [[ -d "/Applications/Antigravity.app" ]]; then

@@ -8,6 +8,11 @@ CYAN='\033[0;36m';  BOLD='\033[1m';      DIM='\033[2m';  NC='\033[0m'
 
 # ── Animation helpers ─────────────────────────────────────────────────────────
 SPIN='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+# Whether stdout was an interactive terminal at startup. Captured here, not
+# in run_step: init_logging redirects stdout through tee before any step
+# runs, which would make a later [[ -t 1 ]] always false and silently kill
+# the spinner in real terminals too.
+SPIN_TTY=0; [[ -t 1 ]] && SPIN_TTY=1
 ERRORS=()
 BG_PIDS=()
 
@@ -62,7 +67,7 @@ run_step() {
   # Animated spinner only on a real terminal: frames are written with \r,
   # which redirected consumers (CI logs, pipes) render as thousands of
   # duplicate lines.
-  if [[ -t 1 ]]; then
+  if [[ $SPIN_TTY -eq 1 ]]; then
     while kill -0 "$pid" 2>/dev/null; do
       local ch="${SPIN:$(( i % ${#SPIN} )):1}"
       printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"

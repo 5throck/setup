@@ -126,14 +126,16 @@ powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1 -Help      # 사용
 
 기본적으로 스크립트는 `bun`과 `uv`의 최신 릴리스를 설치하며, macOS/Linux에서는 `PYTHON_VERSION`으로 `python3` 버전도 고정할 수 있습니다. Windows는 `winget Python.Python.3.13`으로 Python을 설치합니다. 재현 가능한 워크숍 환경을 원한다면, 실행 전에 지원되는 버전을 환경 변수로 고정하세요:
 
+> 참고: 기본 설치 시 스크립트가 bun의 최신 릴리스 태그를 먼저 조회해 해당 태그를 명시적으로 설치합니다. 핀은 신규 설치에만 적용됩니다 — 이미 설치된 `bun`은 핀과 무관하게 최신 버전으로 업그레이드되고, 이미 설치된 `uv`/`python`은 그대로 유지됩니다. Linux에서는 요청한 버전이 배포판 저장소에 없으면 경고와 함께 배포판 `python3`로 대체 설치하며, macOS에서는 고정 공식이 `python3.x`로 설치되어 `python3`가 여전히 Apple CLT 파이썬을 가리킬 수 있습니다.
+
 ```bash
 # macOS / Linux
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
+BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
 # Windows
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+$env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ---

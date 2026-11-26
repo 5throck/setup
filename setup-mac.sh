@@ -5,7 +5,7 @@
 # See company_install_url in setup-lib.sh for supported names.
 #
 # Env overrides for reproducible installs: BUN_VERSION, UV_VERSION, PYTHON_VERSION
-# (default: latest). Example: BUN_VERSION=1.1.34 bash setup-mac.sh
+# (default: latest). Example: BUN_VERSION=1.4.5 bash setup-mac.sh
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
 # (curl | bash) for bun and Antigravity CLI. This is the standard official
@@ -37,7 +37,7 @@ Options:
 
 Env overrides (default: latest):
   BUN_VERSION, UV_VERSION, PYTHON_VERSION
-  Example: BUN_VERSION=1.1.34 bash setup-mac.sh
+  Example: BUN_VERSION=1.4.5 bash setup-mac.sh
 EOF
   exit 0
 fi
@@ -111,6 +111,9 @@ if should_install python3; then
   PY_FORMULA="python3"
   [[ "$PYTHON_VERSION" != "latest" ]] && PY_FORMULA="python@${PYTHON_VERSION}"
   run_step "Install $PY_FORMULA" brew install "$PY_FORMULA"
+  if [[ "$PYTHON_VERSION" != "latest" ]]; then
+    printf "${YELLOW}⚠️ ${NC}  Pinned formula installed as python%s; 'python3' may still resolve to the Apple CLT Python.\n" "$PYTHON_VERSION"
+  fi
 else
   printf "${GREEN}✅${NC}  ${DIM}$(python3 --version) (already installed)${NC}\n"
 fi

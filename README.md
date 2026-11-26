@@ -59,11 +59,11 @@ Korean translations: [`SETUP_ko.md`](SETUP_ko.md), [`SETUP_CHECKLIST_ko.md`](SET
 Pin `bun`/`uv` versions on all platforms, and `python3` on macOS/Linux, instead of always installing latest:
 
 ```bash
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
+BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+$env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ## Security note

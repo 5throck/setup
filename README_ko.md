@@ -59,11 +59,11 @@ install.md 를 읽고 설치해줘
 항상 최신 버전을 설치하는 대신 모든 플랫폼에서 `bun`/`uv`, macOS/Linux에서 `python3` 버전을 고정할 수 있습니다.
 
 ```bash
-BUN_VERSION=1.1.34 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
+BUN_VERSION=1.4.5 UV_VERSION=0.4.20 PYTHON_VERSION=3.13 bash setup-mac.sh
 ```
 
 ```powershell
-$env:BUN_VERSION = "1.1.34"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+$env:BUN_VERSION = "1.4.5"; $env:UV_VERSION = "0.4.20"; powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 ```
 
 ## 보안 참고사항

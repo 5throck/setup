@@ -12,7 +12,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
 #
 # Env overrides for reproducible installs: $env:BUN_VERSION, $env:UV_VERSION
-# (default: latest). Example: $env:BUN_VERSION="1.1.34"; .\setup-windows.ps1
+# (default: latest). Example: $env:BUN_VERSION="1.4.5"; .\setup-windows.ps1
 #
 # ⚠️ SECURITY NOTE: This script downloads and executes remote installers
 # for bun, uv, and Antigravity CLI. This is the standard official install
@@ -79,7 +79,7 @@ Options:
 
 Env overrides (default: latest):
   `$env:BUN_VERSION, `$env:UV_VERSION
-  Example: `$env:BUN_VERSION="1.1.34"; .\setup-windows.ps1
+  Example: `$env:BUN_VERSION="1.4.5"; .\setup-windows.ps1
 "@
     exit 0
 }
@@ -186,7 +186,7 @@ try {
     Start-Transcript -Path $LogFile -Append -ErrorAction Stop | Out-Null
     $transcriptStarted = $true
 } catch {
-    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (trans 실패): $_" -ForegroundColor Yellow
+    Write-Host "  ⚠️  로그 저장을 시작할 수 없습니다 (transcript 실패): $_" -ForegroundColor Yellow
     $transcriptStarted = $false
 }
 
@@ -686,10 +686,21 @@ if ((-not $Force) -and (Installed bun)) {
     }
 }
 if ((-not (Installed bun)) -or $Force) {
+    # Resolve the latest release tag up front so the installed version is
+    # explicit and logged (parity with the bash scripts' resolve_latest_bun_tag);
+    # fall back to install.ps1's own "latest" resolution if the API is
+    # unavailable or rate-limited.
+    $bunPin = $BunVersion
+    if ($bunPin -eq "latest") {
+        try {
+            $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/oven-sh/bun/releases/latest" -UseBasicParsing -TimeoutSec 10
+            if ($rel.tag_name) { $bunPin = $rel.tag_name }
+        } catch { }
+    }
     # Full install: use npm fallback when PS 5.1 cannot download bun.sh/install.ps1
     $bunInstallOk = Invoke-RemoteInstaller "https://bun.sh/install.ps1" {
         param($installerPath)
-        if ($BunVersion -ne "latest") { & $installerPath $BunVersion } else { & $installerPath }
+        if ($bunPin -ne "latest") { & $installerPath $bunPin } else { & $installerPath }
     }
     if (-not $bunInstallOk) {
         Write-Host "     Falling back to npm-based install..." -ForegroundColor Yellow

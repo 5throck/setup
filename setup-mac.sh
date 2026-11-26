@@ -189,7 +189,7 @@ install_codex_desktop() {
     *)     dmg_url="https://persistent.oaistatic.com/codex-app-prod/Codex-latest-x64.dmg" ;;
   esac
   tmp_dir=$(mktemp -d)
-  if ! curl -fsSL --retry 3 --retry-delay 1 "$dmg_url" -o "$tmp_dir/Codex.dmg"; then
+  if ! curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 "$dmg_url" -o "$tmp_dir/Codex.dmg"; then
     rm -rf "$tmp_dir"
     return 1
   fi

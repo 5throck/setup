@@ -59,12 +59,17 @@ run_step() {
   local pid=$!
   BG_PIDS+=("$pid")
 
-  while kill -0 "$pid" 2>/dev/null; do
-    local ch="${SPIN:$(( i % ${#SPIN} )):1}"
-    printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"
-    i=$(( i + 1 ))
-    sleep 0.08
-  done
+  # Animated spinner only on a real terminal: frames are written with \r,
+  # which redirected consumers (CI logs, pipes) render as thousands of
+  # duplicate lines.
+  if [[ -t 1 ]]; then
+    while kill -0 "$pid" 2>/dev/null; do
+      local ch="${SPIN:$(( i % ${#SPIN} )):1}"
+      printf "\r  ${CYAN}%s${NC}  %s" "$ch" "$label"
+      i=$(( i + 1 ))
+      sleep 0.08
+    done
+  fi
 
   wait "$pid"; local rc=$?
   # Trailing spaces overwrite spinner residue: ✅/❌ render one display cell
@@ -126,7 +131,7 @@ fetch_and_run() {
   local url="$1"; shift
   local runner=("$@")
   local tmp; tmp=$(mktemp)
-  if ! curl -fsSL --retry 3 --retry-delay 1 "$url" -o "$tmp"; then
+  if ! curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 "$url" -o "$tmp"; then
     rm -f "$tmp"
     return 1
   fi
@@ -196,7 +201,7 @@ install_bun() {
     export PATH="$HOME/.bun/bin:$PATH"
   else
     local tmp; tmp=$(mktemp)
-    if curl -fsSL --retry 3 --retry-delay 1 https://bun.sh/install -o "$tmp"; then
+    if curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 https://bun.sh/install -o "$tmp"; then
       print_sha256 "$tmp"
       if [[ "$BUN_VERSION" != "latest" ]]; then
         # The installer uses its first argument verbatim as the GitHub release

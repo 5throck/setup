@@ -95,7 +95,7 @@ fi
 
 if should_install gh; then
   run_step "Add GitHub CLI repo" bash -c '
-    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    curl -fsSL --connect-timeout 10 --max-time 60 https://cli.github.com/packages/githubcli-archive-keyring.gpg \
       | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
       | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
@@ -114,11 +114,11 @@ install_gitleaks() {
     aarch64) arch="arm64" ;;
     *) echo "unsupported architecture for gitleaks: $(uname -m)"; return 1 ;;
   esac
-  tag=$(curl -fsSL https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
+  tag=$(curl -fsSL --connect-timeout 10 --max-time 60 https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep -m1 '"tag_name"' | cut -d'"' -f4)
   [[ -z "$tag" ]] && { echo "could not resolve latest gitleaks release"; return 1; }
   tmp_dir=$(mktemp -d)
   tarball="$tmp_dir/gitleaks.tar.gz"
-  if ! curl -fsSL --retry 3 --retry-delay 1 \
+  if ! curl -fsSL --retry 3 --retry-delay 1 --connect-timeout 10 --max-time 600 \
       "https://github.com/gitleaks/gitleaks/releases/download/${tag}/gitleaks_${tag#v}_linux_${arch}.tar.gz" \
       -o "$tarball"; then
     rm -rf "$tmp_dir"
@@ -176,7 +176,7 @@ section 6 $TOTAL "CLI tools"
 if should_install claude; then
   if ! run_step "Install Claude Code CLI" bun install -g @anthropic-ai/claude-code; then
     run_step "Install Node.js (fallback)" bash -c \
-      'curl -fsSL https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
+      'curl -fsSL --connect-timeout 10 --max-time 60 https://deb.nodesource.com/setup_lts.x -o /tmp/nodesource.sh && sudo bash /tmp/nodesource.sh && rm -f /tmp/nodesource.sh && sudo apt-get install -y -q nodejs'
     run_step "Install Claude Code CLI (npm)" npm install -g @anthropic-ai/claude-code
   fi
 else
@@ -205,7 +205,7 @@ if installed google-chrome || installed google-chrome-stable; then
   printf "${GREEN}✅${NC}  Google Chrome ${DIM}(already installed)${NC}\n"
 else
   run_step "Download Chrome .deb" bash -c \
-    'curl -fsSL --retry 3 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb'
+    'curl -fsSL --retry 3 --connect-timeout 10 --max-time 600 https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o /tmp/chrome.deb'
   run_step "Install Google Chrome" bash -c \
     'sudo dpkg -i /tmp/chrome.deb || sudo apt-get install -f -y -q; rm -f /tmp/chrome.deb'
 fi
@@ -228,7 +228,7 @@ fi
 if [[ " $* " == *" --wezterm "* ]]; then
   if should_install wezterm; then
     run_step "Add WezTerm repo" bash -c '
-      curl -fsSL https://apt.fury.io/wez/gpg.key \
+      curl -fsSL --connect-timeout 10 --max-time 60 https://apt.fury.io/wez/gpg.key \
         | sudo gpg --dearmor -o /usr/share/keyrings/wezterm-fury.gpg
       echo "deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *" \
         | sudo tee /etc/apt/sources.list.d/wezterm.list

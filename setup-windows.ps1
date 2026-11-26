@@ -96,7 +96,7 @@ function Invoke-RemoteInstaller($Url, [scriptblock]$Runner) {
         $downloaded = $false
         for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
                 $downloaded = $true
             } catch {
                 if ($attempt -ge 3) { throw }
@@ -151,7 +151,7 @@ function Install-ChromeDirect {
             $downloaded = $false
             for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
                 try {
-                    Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $msi -UseBasicParsing -ErrorAction Stop
+                    Invoke-WebRequest -Uri "https://dl.google.com/dl/chrome/install/googlechromestandaloneenterprise64.msi" -OutFile $msi -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
                     $downloaded = $true
                 } catch {
                     if ($attempt -ge 3) { throw }
@@ -383,12 +383,18 @@ function RunStep($label, [scriptblock]$block, [object[]]$blockArgs = @()) {
         & $userBlock @innerArgs
         if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     } -ArgumentList ($block.ToString()), $blockArgs, $env:PATH
-    $i   = 0
-    while ($job.State -eq 'Running') {
-        $ch = $SpinChars[$i % $SpinChars.Count]
-        Write-Host ("`r  $ch  $label") -NoNewline -ForegroundColor Cyan
-        $i++
-        Start-Sleep -Milliseconds 80
+    # Spinner only when attached to a real console: \r frames become thousands
+    # of duplicate lines in redirected output (CI logs).
+    if (-not [Console]::IsOutputRedirected) {
+        $i   = 0
+        while ($job.State -eq 'Running') {
+            $ch = $SpinChars[$i % $SpinChars.Count]
+            Write-Host ("`r  $ch  $label") -NoNewline -ForegroundColor Cyan
+            $i++
+            Start-Sleep -Milliseconds 80
+        }
+    } else {
+        Wait-Job $job | Out-Null
     }
     $output = @(Receive-Job $job -Wait -ErrorAction SilentlyContinue 2>&1 |
                 ForEach-Object { $_.ToString() } | Where-Object { $_.Trim() })
@@ -431,7 +437,7 @@ function Invoke-QuietRemoteInstaller($Label, $Url) {
         $downloaded = $false
         for ($attempt = 1; $attempt -le 3 -and -not $downloaded; $attempt++) {
             try {
-                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri $Url -OutFile $tmp -UseBasicParsing -TimeoutSec 600 -ErrorAction Stop
                 $downloaded = $true
             } catch {
                 if ($attempt -ge 3) { throw }
@@ -447,12 +453,16 @@ function Invoke-QuietRemoteInstaller($Label, $Url) {
             -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $tmp) `
             -NoNewWindow -PassThru `
             -RedirectStandardOutput $outLog -RedirectStandardError $errLog
-        $i = 0
-        while (-not $proc.HasExited) {
-            $ch = $SpinChars[$i % $SpinChars.Count]
-            Write-Host ("`r  $ch  $Label") -NoNewline -ForegroundColor Cyan
-            $i++
-            Start-Sleep -Milliseconds 80
+        if (-not [Console]::IsOutputRedirected) {
+            $i = 0
+            while (-not $proc.HasExited) {
+                $ch = $SpinChars[$i % $SpinChars.Count]
+                Write-Host ("`r  $ch  $Label") -NoNewline -ForegroundColor Cyan
+                $i++
+                Start-Sleep -Milliseconds 80
+            }
+        } else {
+            $proc.WaitForExit()
         }
         $ok = ($proc.ExitCode -eq 0)
         if ($ok) {
